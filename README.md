@@ -1,2 +1,2 @@
 # gossip-protocol
-python &amp; ruby implementation of a simple gossip protocol
+a small gossip protocol built with UDP and Python
