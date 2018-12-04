@@ -57,7 +57,6 @@ def render_state():
             print(colored("port {0} likes to watch {1}".format(key, val[0]), "red"))
     # print(colored("rendering state from client: " + json.dumps(STATE), "green"))
 
-# Thread = Thread(target=build_state(PORT, PEER_PORT)).start()
 build_state(PORT, PEER_PORT)
 
 movies = open("movies.txt", "r").read().split("\n")
@@ -72,31 +71,37 @@ def select_books():
     global favorite_movie
     global version_number
     while True:
-        time.sleep(10)
-        print("i don't like {0} anymore".format(colored(favorite_movie, "green")))
-        favorite_movie = random.choice(movies)
-        print("my {0} favorite movie is {1}".format(colored("new", "green"), colored(favorite_movie, "green")))
-        version_number += 1
-        update_state({PORT: [favorite_movie, version_number]})
-        # for port, movie_data in STATE.items():
-        #     if port == PORT:
-        #         continue
-        #     gossip_response = send_gossip(port, STATE)
-        #     update_state(gossip_response.json())
-        render_state()
+        try:
+            time.sleep(10)
+            print("i don't like {0} anymore".format(colored(favorite_movie, "green")))
+            favorite_movie = random.choice(movies)
+            print("my {0} favorite movie is {1}".format(colored("new", "green"), colored(favorite_movie, "green")))
+            version_number += 1
+            update_state({PORT: [favorite_movie, version_number]})
+            # for port, movie_data in STATE.items():
+            #     if port == PORT:
+            #         continue
+            #     gossip_response = send_gossip(port, STATE)
+            #     update_state(gossip_response.json())
+            render_state()
+        except KeyboardInterrupt:
+            break
 
 def fetch_state():
     global STATE
     while True:
-        time.sleep(5)
-        for port, movie_data in STATE.items():
-            if port == PORT:
-                continue
-            print(colored("fetching update from {0}".format(port)))
-            gossip_response = client.send_gossip(port, STATE)
-            # pdb.set_trace()
-            update_state(gossip_response.json())
-            render_state()
+        try:
+            time.sleep(5)
+            for port, movie_data in STATE.items():
+                if port == PORT:
+                    continue
+                print(colored("fetching update from {0}".format(port)))
+                gossip_response = client.send_gossip(port, STATE)
+                # pdb.set_trace()
+                update_state(gossip_response.json())
+                render_state()
+        except KeyboardInterrupt:
+            break
 
 Thread(target=select_books).start()
 Thread(target=fetch_state).start()
