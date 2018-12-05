@@ -9,6 +9,7 @@ import os
 import sys
 import json
 import client
+import signal
 import pdb
 
 # message = [favorite_book, version_number]
@@ -21,6 +22,7 @@ import pdb
 
 STATE = {}
 PREVIOUS_STATE = {}
+TIMES = {}
 MAX_PEERS = 5
 
 app = Flask(__name__, static_folder="/")
@@ -108,7 +110,7 @@ def fetch_state():
             if port == PORT:
                 continue
             if port in PEER_PORTS:
-                print(colored("fetching update from {0}".format(port), "yellow"))
+                # print(colored("fetching update from {0}".format(port), "yellow"))
                 try:
                     gossip_response = client.send_gossip(port, STATE)
                     # print(gossip_response.json())
@@ -140,9 +142,13 @@ def timer():
     print(colored("STARTING TIMER", "yellow"))
     start = time.time()
     while len(STATE.keys()) < 9:
-        time.sleep(10)
+        time.sleep(1)
     end = time.time()
     print(colored("END TIMER: {0} sec".format(end - start), "yellow"))
+    time.sleep(1)
+    pid = os.getpid()
+    os.kill(pid, signal.SIGINT)
+
 
 try:
     # Thread(target=select_books).start()
