@@ -2,6 +2,7 @@ import random
 import requests
 from flask import Flask, jsonify, request, make_response
 from threading import Thread
+from multiprocessing import Process, Manager, Value
 from termcolor import colored
 import time
 import os
@@ -20,7 +21,7 @@ import pdb
 
 STATE = {}
 PREVIOUS_STATE = {}
-MAX_PEERS = 3
+MAX_PEERS = 5
 
 app = Flask(__name__, static_folder="/")
 
@@ -59,6 +60,9 @@ def update_state(data):
         if port is None or book_data is None:
             continue
         else:
+            # add port to PEER_PORTS if PEER_PORTS count still less than than MAX_PEERS
+            if len(PEER_PORTS) < MAX_PEERS and port not in PEER_PORTS:
+                PEER_PORTS.append(port)
             STATE[port] = book_data
 
 def render_state():
@@ -92,51 +96,62 @@ def select_books():
         render_state()
 
 def fetch_state():
+    # time.sleep(1)
     global STATE
     global PREVIOUS_STATE
     global PEER_PORTS
     global MAX_PEERS
+    failures = 0
     while True:
         time.sleep(5)
         for port, book_data in STATE.items():
             if port == PORT:
                 continue
             if port in PEER_PORTS:
-                # print(colored("fetching update from {0}".format(port), "yellow"))
+                print(colored("fetching update from {0}".format(port), "yellow"))
                 try:
                     gossip_response = client.send_gossip(port, STATE)
+                    # print(gossip_response.json())
                     update_state(gossip_response.json())
+                    if STATE != PREVIOUS_STATE:
+                        print(colored("new update from port {0}".format(port), "blue"))
+                        render_state()
+                        PREVIOUS_STATE = STATE.copy()
+                    else:
+                        # print(colored("no new update from port {0}".format(port), "blue"))
+                        continue
                 except StandardError as e:
-                    # pdb.set_trace()
-                    print(colored("port {0} is no longer accepting incoming requests".format(port), "red"))
-                    PEER_PORTS.remove(port)
-                    new_port = random.choice(STATE.keys())
-                    while new_port == port:
+                    failures += 1
+                    if failures > 10:
+                        print(colored("port {0} is no longer accepting incoming requests".format(port), "red"))
+                        PEER_PORTS.remove(port)
                         new_port = random.choice(STATE.keys())
+                        while new_port == port:
+                            new_port = random.choice(STATE.keys())
 
-                    if len(PEER_PORTS) < MAX_PEERS:
-                        PEER_PORTS.append(new_port)
-                        print(colored("port {0} has been added to the incoming ".format(new_port), "red"))
-            if STATE != PREVIOUS_STATE:
-                print(colored("new update for port {0}".format(port), "blue"))
-                render_state()
-                PREVIOUS_STATE = STATE
-            else:
-                # print(colored("no new update from port {0}".format(port), "blue"))
-                continue
+                        if len(PEER_PORTS) < MAX_PEERS:
+                            PEER_PORTS.append(new_port)
+                            print(colored("port {0} has been added to the peer list".format(new_port), "red"))
+                        failures = 0
 
 def timer():
+    # time.sleep(1)
+    global STATE
     print(colored("STARTING TIMER", "yellow"))
     start = time.time()
-    while len(STATE.keys()) < 10:
-        time.sleep(1)
+    while len(STATE.keys()) < 9:
+        time.sleep(10)
     end = time.time()
     print(colored("END TIMER: {0} sec".format(end - start), "yellow"))
 
 try:
-    Thread(target=select_books).start()
-    Thread(target=fetch_state).start()
-    Thread(target=timer).start()
+    # Thread(target=select_books).start()
+    f = Thread(target=fetch_state)
+    f.daemon = True
+    s = Thread(target=timer)
+    s.daemon = True
+    f.start()
+    s.start()
 except KeyboardInterrupt as e:
     raise e
     pass
