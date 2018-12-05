@@ -10,12 +10,12 @@ from termcolor import colored
 import json
 import client
 
-# message = [favorite_movie, version_number]
+# message = [favorite_book, version_number]
 # state = {
-#     port1: [favorite_movie, version_number],
-#     port2: [favorite_movie, version_number],
-#     port3: [favorite_movie, version_number],
-#     port4: [favorite_movie, version_number]
+#     port1: [favorite_book, version_number],
+#     port2: [favorite_book, version_number],
+#     port3: [favorite_book, version_number],
+#     port4: [favorite_book, version_number]
 # }
 
 STATE = {}
@@ -35,6 +35,7 @@ def gossip():
 # PORT, PEER_PORTS = sys.argv[1], sys.argv[2]
 PORT, peer_ports = os.environ.get("PORT"), os.environ.get("PEER_PORTS")
 PEER_PORTS = []
+
 if peer_ports is not None:
     peer_ports = peer_ports.split(",")
     PEER_PORTS.append(random.choice(peer_ports))
@@ -52,11 +53,11 @@ def build_state(port, peer_ports):
 
 def update_state(data):
     global STATE
-    for port, movie_data in data.items():
-        if port is None or movie_data is None:
+    for port, book_data in data.items():
+        if port is None or book_data is None:
             continue
         else:
-            STATE[port] = movie_data
+            STATE[port] = book_data
 
 def render_state():
     global PORT
@@ -68,49 +69,63 @@ def render_state():
 
 build_state(PORT, PEER_PORTS)
 
-movies = open("movies.txt", "r").read().split("\n")
+books = open("books.txt", "r").read().split("\n")
 
-favorite_movie = random.choice(movies)
+favorite_book = random.choice(books)
 version_number = 0
-print("my favorite movie is {0}".format(colored(favorite_movie, "green")))
-update_state({PORT: [favorite_movie, version_number]})
+print("my favorite book is {0}".format(colored(favorite_book, "green")))
+update_state({PORT: [favorite_book, version_number]})
 render_state()
 
 def select_books():
-    global favorite_movie
+    global favorite_book
     global version_number
     while True:
-        try:
-            time.sleep(15)
-            print("i don't like {0} anymore".format(colored(favorite_movie, "green")))
-            favorite_movie = random.choice(movies)
-            print("my {0} favorite movie is {1}".format(colored("new", "green"), colored(favorite_movie, "green")))
-            version_number += 1
-            update_state({PORT: [favorite_movie, version_number]})
-            render_state()
-        except KeyboardInterrupt:
-            break
+        time.sleep(10)
+        print("i don't like {0} anymore".format(colored(favorite_book, "green")))
+        favorite_book = random.choice(books)
+        print("my {0} favorite book is {1}".format(colored("new", "green"), colored(favorite_book, "green")))
+        version_number += 1
+        update_state({PORT: [favorite_book, version_number]})
+        render_state()
 
 def fetch_state():
     global STATE
     global PREVIOUS_STATE
+    global PEER_PORTS
+    global MAX_PEERS
     while True:
-        try:
-            time.sleep(5)
-            for port, movie_data in STATE.items():
-                if port == PORT:
-                    continue
-                print(colored("fetching update from {0}".format(port), "yellow"))
-                gossip_response = client.send_gossip(port, STATE)
-                update_state(gossip_response.json())
-                if STATE != PREVIOUS_STATE:
-                    print(colored("new update for port {0}".format(port), "blue"))
-                    render_state()
-                    PREVIOUS_STATE = STATE
-                else:
-                    print(colored("no new update from port {0}".format(port), "blue"))
-        except KeyboardInterrupt:
-            break
+        time.sleep(5)
+        for port, book_data in STATE.items():
+            if port == PORT:
+                continue
+            if port in PEER_PORTS:
+                # print(colored("fetching update from {0}".format(port), "yellow"))
+                try:
+                    gossip_response = client.send_gossip(port, STATE)
+                    update_state(gossip_response.json())
+                except StandardError as e:
+                    # pdb.set_trace()
+                    print(colored("port {0} is no longer accepting incoming requests".format(port), "red"))
+                    PEER_PORTS.remove(port)
+                    new_port = random.choice(STATE.keys())
+                    while new_port == port:
+                        new_port = random.choice(STATE.keys())
 
-Thread(target=select_books).start()
-Thread(target=fetch_state).start()
+                    if len(PEER_PORTS) < MAX_PEERS:
+                        PEER_PORTS.append(new_port)
+                        print(colored("port {0} has been added to the incoming ".format(new_port), "red"))
+            if STATE != PREVIOUS_STATE:
+                print(colored("new update for port {0}".format(port), "blue"))
+                render_state()
+                PREVIOUS_STATE = STATE
+            else:
+                # print(colored("no new update from port {0}".format(port), "blue"))
+                continue
+
+try:
+    Thread(target=select_books).start()
+    Thread(target=fetch_state).start()
+except KeyboardInterrupt as e:
+    raise e
+    pass
