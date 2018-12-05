@@ -2,13 +2,13 @@ import random
 import requests
 from flask import Flask, jsonify, request, make_response
 from threading import Thread
+from termcolor import colored
 import time
-import pdb
 import os
 import sys
-from termcolor import colored
 import json
 import client
+import pdb
 
 # message = [favorite_book, version_number]
 # state = {
@@ -41,6 +41,8 @@ if peer_ports is not None:
     PEER_PORTS.append(random.choice(peer_ports))
     PEER_PORTS.append(random.choice(peer_ports))
     PEER_PORTS.append(random.choice(peer_ports))
+    if PORT in PEER_PORTS:
+        PEER_PORTS.remove(PORT)
     PEER_PORTS = list(set(PEER_PORTS))
 
 def build_state(port, peer_ports):
@@ -81,7 +83,7 @@ def select_books():
     global favorite_book
     global version_number
     while True:
-        time.sleep(10)
+        time.sleep(100)
         print("i don't like {0} anymore".format(colored(favorite_book, "green")))
         favorite_book = random.choice(books)
         print("my {0} favorite book is {1}".format(colored("new", "green"), colored(favorite_book, "green")))
@@ -123,9 +125,18 @@ def fetch_state():
                 # print(colored("no new update from port {0}".format(port), "blue"))
                 continue
 
+def timer():
+    print(colored("STARTING TIMER", "yellow"))
+    start = time.time()
+    while len(STATE.keys()) < 10:
+        time.sleep(1)
+    end = time.time()
+    print(colored("END TIMER: {0} sec".format(end - start), "yellow"))
+
 try:
     Thread(target=select_books).start()
     Thread(target=fetch_state).start()
+    Thread(target=timer).start()
 except KeyboardInterrupt as e:
     raise e
     pass
