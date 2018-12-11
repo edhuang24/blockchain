@@ -89,7 +89,7 @@ def select_books():
     global favorite_book
     global version_number
     while True:
-        time.sleep(100)
+        time.sleep(15)
         print("i don't like {0} anymore".format(colored(favorite_book, "green")))
         favorite_book = random.choice(books)
         print("my {0} favorite book is {1}".format(colored("new", "green"), colored(favorite_book, "green")))
@@ -151,11 +151,13 @@ def timer():
 
 
 try:
-    # Thread(target=select_books).start()
+    a = Thread(target=select_books)
+    a.daemon = True
     f = Thread(target=fetch_state)
     f.daemon = True
     s = Thread(target=timer)
     s.daemon = True
+    a.start()
     f.start()
     s.start()
 except KeyboardInterrupt as e:
