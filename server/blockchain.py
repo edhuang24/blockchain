@@ -61,7 +61,7 @@ class Block(object):
             self._timestamp = None
             txns_string = "".join(map(lambda txn: txn.to_string(), transactions))
             # NOTE: this is where the work factor is inserted
-            self.mint(txns_string, 5)
+            self.mint(txns_string, 1)
         else:
             return
 
@@ -101,24 +101,27 @@ class Block(object):
         txns = map(lambda leaf: leaf.txn(), self._leaves)
         txns_string = "".join(map(lambda txn: txn.to_string(), txns))
         token_hash = hashlib.sha256(str(txns_string) + str(self._timestamp) + str(nonce)).hexdigest()
-        # pdb.set_trace()
+        # ipdb.set_trace()
         return token_hash == self.hash()
 
 class BlockChain(object):
     def __init__(self, amount, pub_key, priv_key):
         self._blocks = []
         self._state = {}
-        genesis_txn = Transaction(None, pub_key, 50, priv_key)
+        genesis_txn = Transaction(None, pub_key, amount, priv_key)
         self._genesis = Block([genesis_txn], None)
         self.append(self._genesis)
 
     def blocks(self):
         return self._blocks
 
+    def print_state(self):
+        print(colored(self._state, "green"))
+
     def append(self, block):
         if self.validate_block(block) is True:
             self.execute_txns(block)
-            print(colored(self._state, "green"))
+            self.print_state()
             self._blocks.append(block)
         else:
             # raise Exception(colored("Block is invalid", "red"))
@@ -165,20 +168,17 @@ class BlockChain(object):
             self._state[leaf.txn().to_address()] += leaf.txn().amount()
 
     def decide_fork(self, blockchain):
-        if blockchain.validate_blockchain(blockchain) is True and len(blockchain.blocks()) > len(self._blocks):
-            return True
+        if self.validate_blockchain(blockchain) is True and len(blockchain.blocks()) > len(self._blocks):
+            self.switch_blockchain(blockchain)
         else:
-            print("Blockchain is invalid or not longer than current chain")
-            return False
+            print("Blockchain is invalid or not longer than current chain...no fork will be executed")
+            raise Exception(colored("Fork aborted", "red"))
 
-    def execute_fork(self, blockchain):
-        if decide_fork(blockchain) is True:
-            self._blocks = blockchain.blocks()
-            self._state = {}
-            map(lambda block: self.execute_txns(block), self._blocks)
-        else:
-            print("No fork will be executed")
-            raise Exception("Fork aborted")
+    def switch_blockchain(self, blockchain):
+        self._blocks = blockchain.blocks()
+        self._state = {}
+        self._genesis = self._blocks[0]
+        map(lambda block: self.execute_txns(block), self._blocks)
 
 # TEST CODE here
 if __name__ == "__main__":
@@ -208,12 +208,12 @@ if __name__ == "__main__":
 
         txn3 = Transaction(satoshi_pubkey, alice_pubkey, 15, satoshi_privkey)
         txn4 = Transaction(satoshi_pubkey, bob_pubkey, 15, satoshi_privkey)
-        new_block_two = Block([txn3, txn4], genesis_block.hash)
+        new_block_two = Block([txn3, txn4], new_block.hash)
         blockchain_two.append(new_block_two)
 
-        # blockchain.decide_fork(blockchain_two)
-        pdb.set_trace()
+        blockchain.decide_fork(blockchain_two)
+        ipdb.set_trace()
     except:
         extype, value, tb = sys.exc_info()
         traceback.print_exc()
-        pdb.post_mortem(tb)
+        ipdb.post_mortem(tb)

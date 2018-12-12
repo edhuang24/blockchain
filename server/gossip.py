@@ -13,7 +13,7 @@ import signal
 import pickle
 import codecs
 import uuid
-import pdb
+import ipdb
 from blockchain import *
 
 # message = [favorite_book, version_number]
@@ -48,7 +48,7 @@ def render_index():
 def render_state():
     return render_template("state.html")
 
-@app.route('/getstate')
+@app.route('/api/state')
 def get_state():
     return jsonify(STATE)
 
@@ -105,7 +105,7 @@ def render_state():
     for peer_port, msg_data in STATE.items():
         if peer_port is not None and msg_data is not None:
             truncated_blockchain = msg_data["blockchain"][0:10]
-            s_print(colored("coming from {0}: port {1} => {2}".format(PORT, peer_port, truncated_blockchain), "red"))
+            s_print(colored("coming from {0}: port {1} => {2}".format(PORT, peer_port, msg_data["parsed_blockchain"]), "red"))
     # s_print(colored("rendering state from client: " + json.dumps(STATE), "green"))
 
 build_state(PORT, PEER_PORTS)
@@ -113,7 +113,6 @@ build_state(PORT, PEER_PORTS)
 encoded_blockchain = open("seed.txt", "r").read()
 blockchain = pickle.loads(codecs.decode(encoded_blockchain, "base64"))
 
-encoded_blockchain
 version_number = 0
 s_print("blockchain is {0}".format(colored(encoded_blockchain[0:10], "green")))
 
@@ -121,6 +120,7 @@ initial_state = {
     PORT: {
         "UUID": uuid.uuid4().int,
         "blockchain": encoded_blockchain,
+        "parsed_blockchain": "{0}{1} block length: {2}, truncated base64: {3} {4}".format(blockchain.__repr__(), "{", len(blockchain.blocks()), encoded_blockchain[0:10], "}"),
         "mem_pool": [],
         "version_number": version_number,
         "ttl": time.time() + 60*1
@@ -138,6 +138,7 @@ def select_books():
         new_state = {
             "UUID": uuid.uuid4().int,
             "blockchain": encoded_blockchain,
+            "parsed_blockchain": "{0}{1} block length: {2}, truncated base64: {3} {4}".format(blockchain.__repr__(), "{", len(blockchain.blocks()), encoded_blockchain[0:10], "}"),
             "mem_pool": [],
             "version_number": version_number + 1,
             "ttl": time.time() + 60*1

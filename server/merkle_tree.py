@@ -2,7 +2,7 @@
 import sys
 import traceback
 import hashlib
-import pdb
+import ipdb
 import random
 
 class Node(object):
@@ -96,7 +96,7 @@ class MerkleTree(object):
                     parent = HashNode(child_one.data() + child_two.data())
                     child_one.parent, child_two.parent = parent, parent
                     parent.left, parent.right = child_one, child_two
-                    # pdb.set_trace()
+                    # ipdb.set_trace()
                     if isinstance(parent, Node):
                         self._nodes.append(parent)
 
@@ -151,9 +151,9 @@ if __name__ == "__main__":
         merkle_proof = generate_merkle_proof(merkle_tree.nodes()[0])
         proof_hashes = map(lambda node: node.data(), merkle_proof["path"])
         print proof_hashes
-        # pdb.set_trace()
+        # ipdb.set_trace()
         print verify_merkle_proof(merkle_proof)
     except:
         extype, value, tb = sys.exc_info()
         traceback.print_exc()
-        pdb.post_mortem(tb)
+        ipdb.post_mortem(tb)

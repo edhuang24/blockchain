@@ -9,12 +9,14 @@ let colors = {
 setInterval(function () {
   $.ajax({
     method: 'GET',
-    url: '/getstate'
+    url: '/api/state'
   }).then(function (data) {
+    // debugger
       window.state = data;
       document.getElementById("state").innerHTML = ""
       Object.keys(window.state).forEach(function (port) {
-        let state_div = `<p style="color: ${colors[port]}">port ${port} likes ${window.state[port][0]}<p>`;
+        // debugger
+        let state_div = `<p style="color: ${colors[port]}">[PORT ${port}]: ${window.state[port]["parsed_blockchain"].replace("<", "&lt;").replace(">", "&gt;")}</p>`;
         document.getElementById("state").innerHTML += state_div;
       });
   });
