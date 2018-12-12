@@ -120,7 +120,8 @@ class BlockChain(object):
             print(colored(self._state, "green"))
             self._blocks.append(block)
         else:
-            raise Exception(colored("Block is invalid", "red"))
+            # raise Exception(colored("Block is invalid", "red"))
+            print(colored("Block is invalid", "red"))
 
     # need to separate the validation from the execution
     def validate_block(self, block):
@@ -142,8 +143,8 @@ class BlockChain(object):
         return True
 
     def validate_blockchain(self, blockchain):
-        for block in blockchain:
-            if validate_block(block) == False:
+        for block in blockchain.blocks():
+            if blockchain.validate_block(block) == False:
                 return False
             if block.validate_nonce(block.nonce()) == False:
                 return False
@@ -164,7 +165,7 @@ class BlockChain(object):
             self._state[leaf.txn().to_address()] += leaf.txn().amount()
 
     def decide_fork(self, blockchain):
-        if validate_blockchain(blockchain) is True and len(blockchain.blocks()) > len(self._blocks):
+        if blockchain.validate_blockchain(blockchain) is True and len(blockchain.blocks()) > len(self._blocks):
             return True
         else:
             print("Blockchain is invalid or not longer than current chain")
@@ -195,6 +196,7 @@ if __name__ == "__main__":
         satoshi_privkey = satoshi_key.exportKey()
         satoshi_pubkey = satoshi_key.publickey().exportKey()
         blockchain = BlockChain(50, satoshi_pubkey, satoshi_privkey)
+        blockchain_two = BlockChain(100, satoshi_pubkey, satoshi_privkey)
 
         genesis_block = blockchain.blocks()[0]
         print(genesis_block.validate_nonce(genesis_block.nonce()))
@@ -202,12 +204,15 @@ if __name__ == "__main__":
         txn2 = Transaction(satoshi_pubkey, bob_pubkey, 15, satoshi_privkey)
         new_block = Block([txn1, txn2], genesis_block.hash)
         blockchain.append(new_block)
+        blockchain_two.append(new_block)
 
         txn3 = Transaction(satoshi_pubkey, alice_pubkey, 15, satoshi_privkey)
         txn4 = Transaction(satoshi_pubkey, bob_pubkey, 15, satoshi_privkey)
-        new_block2 = Block([txn3, txn4], genesis_block.hash)
-        blockchain.append(new_block2)
-        # pdb.set_trace()
+        new_block_two = Block([txn3, txn4], genesis_block.hash)
+        blockchain_two.append(new_block_two)
+
+        # blockchain.decide_fork(blockchain_two)
+        pdb.set_trace()
     except:
         extype, value, tb = sys.exc_info()
         traceback.print_exc()
