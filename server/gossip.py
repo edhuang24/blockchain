@@ -10,6 +10,7 @@ import sys
 import json
 import client
 import signal
+import marshal
 import pdb
 from blockchain import *
 
@@ -66,11 +67,20 @@ if peer_ports is not None:
 
 def build_state(port, peer_ports):
     global STATE
+    pdb.set_trace()
     STATE[port] = None
     if len(peer_ports) > 0:
         for peer_port in peer_ports:
             if peer_port is not None:
                 STATE[peer_port] = None
+
+# def build_state(port, peer_ports):
+#     global STATE
+#     STATE[port] = None
+#     if len(peer_ports) > 0:
+#         for peer_port in peer_ports:
+#             if peer_port is not None:
+#                 STATE[peer_port] = None
 
 def update_state(data):
     global STATE

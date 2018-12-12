@@ -1,10 +1,5 @@
-import sys
-import traceback
-import hashlib
-import pdb
-import Crypto
-import random
 from termcolor import colored
+import Crypto
 from Crypto import Random
 from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256
@@ -125,18 +120,23 @@ class BlockChain(object):
             print(colored(self._state, "green"))
             self._blocks.append(block)
         else:
-            raise Exception("Block is invalid")
+            raise Exception(colored("Block is invalid", "red"))
 
     # need to separate the validation from the execution
     def validate_block(self, block):
         if block == self._genesis:
             return True
 
+        dup_state = self._state.copy()
+
         for leaf in block.leaves():
-            if leaf.txn().from_address() is not None and leaf.txn().from_address() in self._state:
-                if (self._state[leaf.txn().from_address()] - leaf.txn().amount()) < 0:
-                    return False
-            elif leaf.txn().from_address() is None or leaf.txn().from_address() not in self._state:
+            if leaf.txn().from_address() is None or leaf.txn().from_address() not in dup_state:
+                return False
+            elif leaf.txn().from_address() is not None and leaf.txn().from_address() in dup_state:
+                dup_state[leaf.txn().from_address()] = dup_state[leaf.txn().from_address()] - leaf.txn().amount()
+
+        for key in dup_state:
+            if dup_state[key] < 0:
                 return False
 
         return True
@@ -196,13 +196,18 @@ if __name__ == "__main__":
         satoshi_pubkey = satoshi_key.publickey().exportKey()
         blockchain = BlockChain(50, satoshi_pubkey, satoshi_privkey)
 
-        txn1 = Transaction(satoshi_pubkey, alice_pubkey, 15, satoshi_privkey)
-        txn2 = Transaction(satoshi_pubkey, bob_pubkey, 15, satoshi_privkey)
         genesis_block = blockchain.blocks()[0]
         print(genesis_block.validate_nonce(genesis_block.nonce()))
+        txn1 = Transaction(satoshi_pubkey, alice_pubkey, 15, satoshi_privkey)
+        txn2 = Transaction(satoshi_pubkey, bob_pubkey, 15, satoshi_privkey)
         new_block = Block([txn1, txn2], genesis_block.hash)
         blockchain.append(new_block)
-        pdb.set_trace()
+
+        txn3 = Transaction(satoshi_pubkey, alice_pubkey, 15, satoshi_privkey)
+        txn4 = Transaction(satoshi_pubkey, bob_pubkey, 15, satoshi_privkey)
+        new_block2 = Block([txn3, txn4], genesis_block.hash)
+        blockchain.append(new_block2)
+        # pdb.set_trace()
     except:
         extype, value, tb = sys.exc_info()
         traceback.print_exc()
