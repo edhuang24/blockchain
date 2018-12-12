@@ -1,6 +1,6 @@
 import random
 import requests
-from flask import Flask, jsonify, request, make_response
+from flask import Flask, jsonify, request, make_response, render_template
 from threading import Thread
 from multiprocessing import Process, Manager, Value
 from termcolor import colored
@@ -25,7 +25,19 @@ PREVIOUS_STATE = {}
 TIMES = {}
 MAX_PEERS = 5
 
-app = Flask(__name__, static_folder="/")
+app = Flask(__name__, static_folder="../client/static", template_folder="../client/templates")
+
+@app.route('/')
+def render_index():
+    return render_template("index.html")
+
+@app.route('/state')
+def render_state():
+    return render_template("state.html")
+
+@app.route('/getstate')
+def get_state():
+    return jsonify(STATE)
 
 @app.route('/gossip', methods=['POST'])
 def gossip():
@@ -148,7 +160,6 @@ def timer():
     time.sleep(1)
     pid = os.getpid()
     os.kill(pid, signal.SIGINT)
-
 
 try:
     a = Thread(target=select_books)

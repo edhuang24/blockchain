@@ -3,9 +3,9 @@ const path = require('path');
 module.exports = {
   mode: 'development',
   context: __dirname,
-  entry: './js/index.jsx',
+  entry: './static/js/index.jsx',
   output: {
-    path: path.resolve(__dirname, 'dist'),
+    path: path.resolve(__dirname, 'static', 'dist'),
     filename: 'bundle.js'
   },
   module: {
