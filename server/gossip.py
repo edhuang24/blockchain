@@ -10,7 +10,9 @@ import sys
 import json
 import client
 import signal
-import dill
+import pickle
+import codecs
+import uuid
 import pdb
 from blockchain import *
 
@@ -29,7 +31,7 @@ MAX_PEERS = 5
 
 PRIV_KEY = RSA.generate(1024, Random.new().read)
 PUB_KEY = PRIV_KEY.publickey()
-SERVER_PRINT_STATE = False
+SERVER_PRINT_STATE = True
 
 def s_print(msg):
     global SERVER_PRINT_STATE
@@ -88,75 +90,62 @@ def build_state(port, peer_ports):
 
 def update_state(data):
     global STATE
-    for port, book_data in data.items():
-        if port is None or book_data is None:
+    for port, msg_data in data.items():
+        if port is None or msg_data is None:
             continue
         else:
             # add port to PEER_PORTS if PEER_PORTS count still less than than MAX_PEERS
             if len(PEER_PORTS) < MAX_PEERS and port not in PEER_PORTS:
                 PEER_PORTS.append(port)
-            STATE[port] = book_data
+            STATE[port] = msg_data
 
 def render_state():
     global PORT
     global STATE
-    for key, val in STATE.items():
-        if key is not None and val is not None:
-            s_print(colored("coming from {0}: port {1} => {2}".format(PORT, key, val[0]), "red"))
+    for peer_port, msg_data in STATE.items():
+        if peer_port is not None and msg_data is not None:
+            truncated_blockchain = msg_data["blockchain"][0:10]
+            s_print(colored("coming from {0}: port {1} => {2}".format(PORT, peer_port, truncated_blockchain), "red"))
     # s_print(colored("rendering state from client: " + json.dumps(STATE), "green"))
 
 build_state(PORT, PEER_PORTS)
 
-books = open("books.txt", "r").read().split("\n")
-favorite_book = random.choice(books)
-version_number = 0
-s_print("my favorite book is {0}".format(colored(favorite_book, "green")))
-favorite_book = random.choice(books)
-version_number = 0
+encoded_blockchain = open("seed.txt", "r").read()
+blockchain = pickle.loads(codecs.decode(encoded_blockchain, "base64"))
 
-# alice_key = RSA.generate(1024, Random.new().read)
-# alice_privkey = alice_key.exportKey()
-# alice_pubkey = alice_key.publickey().exportKey()
-#
-# bob_key = RSA.generate(1024, Random.new().read)
-# bob_privkey = bob_key.exportKey()
-# bob_pubkey = bob_key.publickey().exportKey()
-#
-# satoshi_key = RSA.generate(1024, Random.new().read)
-# satoshi_privkey = satoshi_key.exportKey()
-# satoshi_pubkey = satoshi_key.publickey().exportKey()
-#
-# blockchain = BlockChain(50, satoshi_pubkey, satoshi_privkey)
-# genesis_block = blockchain.blocks()[0]
-#
-# txn1 = Transaction(satoshi_pubkey, alice_pubkey, 15, satoshi_privkey)
-# txn2 = Transaction(satoshi_pubkey, bob_pubkey, 15, satoshi_privkey)
-# new_block = Block([txn1, txn2], genesis_block.hash)
-# blockchain.append(new_block)
-#
-# blockchain_bytes = dill.dumps(blockchain)
-#
-# favorite_book = blockchain_bytes
-# version_number = 0
-# s_print("blockchain is {0}".format(colored(favorite_book, "green")))
+encoded_blockchain
+version_number = 0
+s_print("blockchain is {0}".format(colored(encoded_blockchain[0:10], "green")))
 
-update_state({PORT: [favorite_book, version_number]})
+initial_state = {
+    PORT: {
+        "UUID": uuid.uuid4().int,
+        "blockchain": encoded_blockchain,
+        "mem_pool": [],
+        "version_number": version_number,
+        "ttl": time.time() + 60*1
+    }
+}
+
+update_state(initial_state)
 render_state()
 
 def select_books():
-    global favorite_book
+    global encoded_blockchain
     global version_number
     while True:
         time.sleep(15)
-        s_print("i don't like {0} anymore".format(colored(favorite_book, "green")))
-        favorite_book = random.choice(books)
-        s_print("my {0} favorite book is {1}".format(colored("new", "green"), colored(favorite_book, "green")))
-        version_number += 1
-        update_state({PORT: [favorite_book, version_number]})
+        new_state = {
+            "UUID": uuid.uuid4().int,
+            "blockchain": encoded_blockchain,
+            "mem_pool": [],
+            "version_number": version_number + 1,
+            "ttl": time.time() + 60*1
+        }
+        update_state({PORT: new_state})
         render_state()
 
 def fetch_state():
-    # time.sleep(1)
     global STATE
     global PREVIOUS_STATE
     global PEER_PORTS
@@ -173,7 +162,7 @@ def fetch_state():
                     gossip_response = client.send_gossip(port, STATE)
                     # s_print(gossip_response.json())
                     update_state(gossip_response.json())
-                    if STATE != PREVIOUS_STATE:
+                    if STATE[port]["blockchain"] != PREVIOUS_STATE[port]["blockchain"]:
                         s_print(colored("new update from port {0}".format(port), "blue"))
                         render_state()
                         PREVIOUS_STATE = STATE.copy()
@@ -195,7 +184,6 @@ def fetch_state():
                         failures = 0
 
 def timer():
-    # time.sleep(1)
     global STATE
     s_print(colored("STARTING TIMER", "yellow"))
     start = time.time()
@@ -210,13 +198,13 @@ def timer():
 try:
     f = Thread(target=fetch_state)
     f.daemon = True
-    s = Thread(target=timer)
+    timer = Thread(target=timer)
+    timer.daemon = True
+    s = Thread(target=select_books)
     s.daemon = True
-    a = Thread(target=select_books)
-    a.daemon = True
-    a.start()
-    f.start()
     s.start()
+    f.start()
+    timer.start()
 except KeyboardInterrupt as e:
     raise e
     pass

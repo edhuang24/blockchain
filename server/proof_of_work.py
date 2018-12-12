@@ -55,7 +55,7 @@ if __name__ == '__main__':
     # challenge4 = "435)&#%asdjenrlk+/"
     # challenge5 = "FH4klnf~!#@982{}|<"
     # challenge6 = "hellogoodbyehello!"
-    token1 = mint(challenge1, 3)
+    token1 = mint(challenge1, 5)
     print token1
     # token2 = mint(challenge2, 4)
     # token3 = mint(challenge3, 4)

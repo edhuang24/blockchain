@@ -60,7 +60,8 @@ class Block(object):
             self._hash = None
             self._timestamp = None
             txns_string = "".join(map(lambda txn: txn.to_string(), transactions))
-            self.mint(txns_string, 1)
+            # NOTE: this is where the work factor is inserted
+            self.mint(txns_string, 5)
         else:
             return
 
@@ -123,7 +124,6 @@ class BlockChain(object):
             # raise Exception(colored("Block is invalid", "red"))
             print(colored("Block is invalid", "red"))
 
-    # need to separate the validation from the execution
     def validate_block(self, block):
         if block == self._genesis:
             return True
