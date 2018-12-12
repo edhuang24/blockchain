@@ -11,6 +11,7 @@ import json
 import client
 import signal
 import pdb
+from blockchain import *
 
 # message = [favorite_book, version_number]
 # state = {
@@ -45,6 +46,9 @@ def gossip():
     update_state(json.loads(new_state))
     # print(colored("rendering state from server:" + json.dumps(STATE), "red"))
     return jsonify(STATE)
+
+if __name__ == "__main__":
+    app.run()
 
 # STATE = state.STATE
 # PORT, PEER_PORTS = sys.argv[1], sys.argv[2]
