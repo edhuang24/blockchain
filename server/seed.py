@@ -33,3 +33,12 @@ decoded = codecs.decode(encoded, "base64")
 
 with open("seed.txt", "w") as new_file:
     new_file.write(encoded)
+
+with open("alice_pubkey.txt", "w") as new_file:
+    new_file.write(alice_pubkey)
+
+with open("bob_pubkey.txt", "w") as new_file:
+    new_file.write(bob_pubkey)
+
+with open("satoshi_pubkey.txt", "w") as new_file:
+    new_file.write(satoshi_pubkey)

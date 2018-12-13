@@ -130,16 +130,17 @@ initial_state = {
 update_state(initial_state)
 render_state()
 
-def select_books():
+def add_transaction():
     global encoded_blockchain
     global version_number
     while True:
         time.sleep(15)
+        # new_transaction = Transaction()
         new_state = {
             "UUID": uuid.uuid4().int,
             "blockchain": encoded_blockchain,
             "parsed_blockchain": "{0}{1} block length: {2}, truncated base64: {3} {4}".format(blockchain.__repr__(), "{", len(blockchain.blocks()), encoded_blockchain[0:10], "}"),
-            "mem_pool": [],
+            "mem_pool": STATE["mem_pool"].append(new_transaction),
             "version_number": version_number + 1,
             "ttl": time.time() + 60*1
         }
@@ -201,7 +202,7 @@ try:
     f.daemon = True
     timer = Thread(target=timer)
     timer.daemon = True
-    s = Thread(target=select_books)
+    s = Thread(target=add_transaction)
     s.daemon = True
     s.start()
     f.start()
