@@ -53,6 +53,7 @@ if __name__ == "__main__":
 STATE = {}
 PREVIOUS_STATE = {}
 TIMES = {}
+SLEEP = False
 MAX_PEERS = 5
 
 priv_key = RSA.generate(1024, Random.new().read)
@@ -130,6 +131,7 @@ def build_state(port, peer_ports):
 
 def update_state(data):
     global STATE
+    global SLEEP
     for port, msg_data in data.items():
         if port is None or msg_data is None:
             continue
@@ -138,16 +140,31 @@ def update_state(data):
             if len(PEER_PORTS) < MAX_PEERS and port not in PEER_PORTS:
                 PEER_PORTS.append(port)
 
-            peer_blockchain = decode_object(msg_data["blockchain"])
+            if port != PORT:
+                peer_blockchain = decode_object(msg_data["blockchain"])
+                diff = len(peer_blockchain.blocks()) - len(BLOCKCHAIN.blocks())
+                # s_print(colored("Difference: ", "yellow") + colored(len(peer_blockchain.blocks()) - len(BLOCKCHAIN.blocks()), "yellow"))
+                if diff > 0:
+                    self_len = len(BLOCKCHAIN.blocks())
+                    new_blocks = peer_blockchain.blocks()[self_len:]
+                    my_mempool = STATE[PORT]["mem_pool"]
+                    BLOCKCHAIN.decide_fork(peer_blockchain)
+                    # peer_mempool = msg_data["mem_pool"]
 
-            if len(peer_blockchain.blocks()) > len(BLOCKCHAIN.blocks()):
-                # extra
-                BLOCKCHAIN.decide_fork(peer_blockchain)
+                    # iterate over the blocks & leaves to grab the txns
+                    for block in new_blocks:
+                        for leaf in block.leaves():
+                            encoded_txn = encode_object(leaf.txn())
+                            if encoded_txn in STATE[PORT]["mem_pool"]:
+                                # remove the new transactions from my_mempool so I don't mine them later
+                                # NOTE: they should have already been removed from the peer_mempool when they were mined by the peer
+                                my_mempool.remove(encode_object(leaf.txn()))
 
             if STATE[PORT] is not None:
+                # after flushing mempools, combine mempools
                 combined_mempool = list(set(STATE[PORT]["mem_pool"] + msg_data["mem_pool"]))
+                s_print("mempool length:" + str(len(combined_mempool)))
                 STATE[PORT]["mem_pool"] = combined_mempool
-                msg_data["mem_pool"] = combined_mempool
 
             STATE[port] = msg_data
 
@@ -170,11 +187,15 @@ render_state()
 
 def add_transaction():
     global STATE
+    global SLEEP
     global BLOCKCHAIN
     global version_number
     while True:
-        # rand_sec = random.randint(1, 15)
-        rand_sec = 5
+        if SLEEP is True:
+            time.sleep(1000)
+        rand_sec = random.randint(1, 15)
+        print(colored("sleeping {0} sec".format(rand_sec), "yellow"))
+        # rand_sec = 5
         time.sleep(rand_sec)
         # rand_idx = random(0, len(STATE.keys()))
         # rand_port = STATE.keys()[rand_idx]
@@ -207,12 +228,15 @@ def add_transaction():
 
 def fetch_state():
     global STATE
+    global SLEEP
     global PREVIOUS_STATE
     global PEER_PORTS
     global MAX_PEERS
     failures = 0
     while True:
-        time.sleep(5)
+        if SLEEP is True:
+            time.sleep(1000)
+        time.sleep(3)
         for port, book_data in STATE.items():
             if port == PORT:
                 continue
@@ -231,7 +255,7 @@ def fetch_state():
                         continue
                 except StandardError as e:
                     failures += 1
-                    if failures > 10:
+                    if failures > 100:
                         s_print(colored("port {0} is no longer accepting incoming requests".format(port), "red"))
                         PEER_PORTS.remove(port)
                         new_port = random.choice(STATE.keys())

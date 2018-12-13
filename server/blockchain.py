@@ -66,7 +66,7 @@ class Block(object):
             self._timestamp = None
             txns_string = "".join(map(lambda txn: txn.to_string(), transactions))
             # NOTE: this is where the work factor is inserted
-            self.mint(txns_string, 1)
+            self.block_mint(txns_string, 1)
         else:
             return
 
@@ -85,7 +85,7 @@ class Block(object):
     def timestamp(self):
         return self._timestamp
 
-    def mint(self, challenge, work_factor):
+    def block_mint(self, challenge, work_factor):
         token = mint(challenge, work_factor)
         self._hash = token[0]
         self._nonce = token[1]
@@ -116,6 +116,9 @@ class BlockChain(object):
         genesis_txn = Transaction(None, pub_key, amount, priv_key)
         self._genesis = Block([genesis_txn], None)
         self.append(self._genesis)
+
+    def len(self):
+        return len(self._blocks)
 
     def blocks(self):
         return self._blocks

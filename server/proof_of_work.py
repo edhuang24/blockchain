@@ -39,10 +39,10 @@ def mint(challenge, work_factor):
     print("failed to match challenge")
     return None
 
-def verify(challenge, work_factor, token):
-    """function(str, int, str) -> bool
+def verify(challenge, token):
+    """function(str, str) -> bool
 
-    Takes in a challenge, work_factor/difficulty, & token and confirms whether
+    Takes in a challenge & token and confirms whether
     the token solves the challenge
     """
     if token[0] in cache:
@@ -73,4 +73,4 @@ if __name__ == '__main__':
     # token4 = mint(challenge4, 4)
     # token5 = mint(challenge5, 4)
     # token6 = mint(challenge6, 4)
-    print verify(challenge1, 7, token1)
+    print verify(challenge1, token1)

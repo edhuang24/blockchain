@@ -146,13 +146,13 @@ if __name__ == "__main__":
         data = ["We", "hold", "these", "truths", "to", "be", "self-evident", "that"]
         merkle_tree = MerkleTree(data)
         tree_hashes = map(lambda node: node.data(), merkle_tree.nodes())
-        print tree_hashes
+        print(tree_hashes)
 
         merkle_proof = generate_merkle_proof(merkle_tree.nodes()[0])
         proof_hashes = map(lambda node: node.data(), merkle_proof["path"])
-        print proof_hashes
+        print(proof_hashes)
         # ipdb.set_trace()
-        print verify_merkle_proof(merkle_proof)
+        print(verify_merkle_proof(merkle_proof))
     except:
         extype, value, tb = sys.exc_info()
         traceback.print_exc()
