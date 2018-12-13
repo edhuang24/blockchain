@@ -15,6 +15,7 @@
 import hashlib
 import time
 import ipdb
+from termcolor import colored
 
 max_nonce = 2 ** 32
 cache = []
@@ -29,10 +30,11 @@ def mint(challenge, work_factor):
     current_time = time.ctime()
     for nonce in xrange(max_nonce):
         hash_result = hashlib.sha256(str(challenge) + str(current_time) + str(nonce)).hexdigest()
-        if (nonce % 10000) == 0:
-            print([nonce, current_time, hash_result])
+        # if (nonce % 10000) == 0:
+        #     print([nonce, current_time, hash_result])
 
         if hash_result[:work_factor] == "0" * work_factor:
+            print(colored("MINING WAS SUCCESSFUL", "green"))
             print([nonce, current_time, hash_result])
             append_to_cache(hash_result)
             token = [hash_result, nonce, current_time]

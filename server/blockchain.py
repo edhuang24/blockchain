@@ -1,4 +1,3 @@
-from termcolor import colored
 import Crypto
 from Crypto import Random
 from Crypto.PublicKey import RSA
@@ -123,13 +122,16 @@ class BlockChain(object):
     def blocks(self):
         return self._blocks
 
+    def state(self):
+        return self._state
+
     def print_state(self):
         print(colored(self._state, "green"))
 
     def append(self, block):
         if self.validate_block(block) is True:
             self.execute_txns(block)
-            self.print_state()
+            # self.print_state()
             self._blocks.append(block)
         else:
             # raise Exception(colored("Block is invalid", "red"))
@@ -156,17 +158,17 @@ class BlockChain(object):
     def validate_blockchain(self, blockchain):
         for block in blockchain.blocks():
             if blockchain.validate_block(block) == False:
-                print(colored("ERROR CAME FROM validate_block", "red"))
-                ipdb.set_trace()
+                # print(colored("ERROR CAME FROM validate_block", "red"))
+                # ipdb.set_trace()
                 return False
             if block.validate_nonce(block.nonce()) == False:
-                print(colored("ERROR CAME FROM validate_nonce", "red"))
-                ipdb.set_trace()
+                # print(colored("ERROR CAME FROM validate_nonce", "red"))
+                # ipdb.set_trace()
                 return False
             for leaf in block.leaves():
                 if leaf.txn().validate_signature() == False:
-                    print(colored("ERROR CAME FROM validate_signature", "red"))
-                    ipdb.set_trace()
+                    # print(colored("ERROR CAME FROM validate_signature", "red"))
+                    # ipdb.set_trace()
                     return False
 
         return True

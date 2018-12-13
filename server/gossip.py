@@ -16,6 +16,21 @@ import uuid
 import ipdb
 from blockchain import *
 
+# ===========BEGIN: SET GLOBAL VARIABLES & HELPERS=========== #
+
+STATE = {}
+PREVIOUS_STATE = {}
+TIMES = {}
+DEBUG = False
+MAX_PEERS = 5
+
+priv_key = RSA.generate(1024, Random.new().read)
+PRIV_KEY = priv_key.exportKey()
+PUB_KEY = priv_key.publickey().exportKey()
+SERVER_PRINT_STATE = False
+
+# ===========END: SET GLOBAL VARIABLES & HELPERS=========== #
+
 # ===========BEGIN: FLASK SERVER LOGIC=========== #
 
 app = Flask(__name__, static_folder="../client/static", template_folder="../client/templates")
@@ -28,40 +43,31 @@ def render_index():
 def render_state():
     return render_template("state.html")
 
-@app.route('/api/state')
-def get_state():
-    return jsonify(STATE)
-
 @app.route('/gossip', methods=['POST'])
 def gossip():
+    global STATE
     new_state = request.data
     update_state(json.loads(new_state))
     # s_print(colored("rendering state from server:" + json.dumps(STATE), "red"))
     return jsonify(STATE)
 
-@app.route('/getpubkey')
+@app.route('/api/getpubkey')
 def get_pubkey():
     return PUB_KEY.exportKey()
+
+@app.route('/api/state')
+def get_state():
+    return jsonify(STATE)
+
+@app.route('/api/balances')
+def get_balances():
+    global BLOCKCHAIN
+    return jsonify(BLOCKCHAIN.state())
 
 if __name__ == "__main__":
     app.run()
 
 # ===========END: FLASK SERVER LOGIC=========== #
-
-# ===========BEGIN: SET GLOBAL VARIABLES & HELPERS=========== #
-
-STATE = {}
-PREVIOUS_STATE = {}
-TIMES = {}
-DEBUG = False
-MAX_PEERS = 5
-
-priv_key = RSA.generate(1024, Random.new().read)
-PRIV_KEY = priv_key.exportKey()
-PUB_KEY = priv_key.publickey().exportKey()
-SERVER_PRINT_STATE = True
-
-# ===========END: SET GLOBAL VARIABLES & HELPERS=========== #
 
 # ===========BEGIN: BLOCKCHAIN HELPERS=========== #
 
@@ -135,6 +141,7 @@ def build_state(port, peer_ports):
 def update_state(data):
     global STATE
     global MEM_POOL
+    global BLOCKCHAIN
     global DEBUG
     for port, msg_data in data.items():
         if port is None or msg_data is None:
@@ -193,17 +200,17 @@ build_state(PORT, PEER_PORTS)
 update_state(initial_state)
 render_state()
 
-def add_transaction():
+def evaluate_state():
     global STATE
     global MEM_POOL
-    global DEBUG
     global BLOCKCHAIN
+    global DEBUG
     global version_number
     while True:
         if DEBUG is True:
             time.sleep(1000)
         sec = random.randint(1, 15)
-        # sec = 30
+        # sec = 15
         print(colored("sleeping {0} sec".format(sec), "yellow"))
         time.sleep(sec)
         # rand_idx = random(0, len(STATE.keys()))
@@ -245,7 +252,7 @@ def fetch_state():
     while True:
         if DEBUG is True:
             time.sleep(1000)
-        time.sleep(3)
+        time.sleep(5)
         for port, book_data in STATE.items():
             if port == PORT:
                 continue
@@ -295,7 +302,7 @@ try:
     f.daemon = True
     timer = Thread(target=timer)
     timer.daemon = True
-    s = Thread(target=add_transaction)
+    s = Thread(target=evaluate_state)
     s.daemon = True
     s.start()
     f.start()
