@@ -138,7 +138,17 @@ def update_state(data):
             if len(PEER_PORTS) < MAX_PEERS and port not in PEER_PORTS:
                 PEER_PORTS.append(port)
 
-            if
+            peer_blockchain = decode_object(msg_data["blockchain"])
+
+            if len(peer_blockchain.blocks()) > len(BLOCKCHAIN.blocks()):
+                # extra
+                BLOCKCHAIN.decide_fork(peer_blockchain)
+
+            if STATE[PORT] is not None:
+                combined_mempool = list(set(STATE[PORT]["mem_pool"] + msg_data["mem_pool"]))
+                STATE[PORT]["mem_pool"] = combined_mempool
+                msg_data["mem_pool"] = combined_mempool
+
             STATE[port] = msg_data
 
 def render_state():
@@ -164,7 +174,7 @@ def add_transaction():
     global version_number
     while True:
         # rand_sec = random.randint(1, 15)
-        rand_sec = 2
+        rand_sec = 5
         time.sleep(rand_sec)
         # rand_idx = random(0, len(STATE.keys()))
         # rand_port = STATE.keys()[rand_idx]
@@ -179,12 +189,12 @@ def add_transaction():
 
         if len(STATE[PORT]["mem_pool"]) >= 2:
             txns = STATE[PORT]["mem_pool"][:2]
-            new_state["mem_pool"] = STATE[PORT]["mem_pool"][2:]
             txns = map(lambda txn: decode_object(txn), txns)
             latest_block = BLOCKCHAIN.blocks()[-1]
             # ipdb.set_trace()
             new_block = Block(txns, latest_block.hash())
             BLOCKCHAIN.append(new_block)
+            new_state["mem_pool"] = STATE[PORT]["mem_pool"][2:]
             new_state["blockchain"] = encode_object(BLOCKCHAIN)
             new_state["parsed_blockchain"] = parse_blockchain(BLOCKCHAIN)
         else:
@@ -248,15 +258,15 @@ def timer():
 # ===========BEGIN: SERVER PROCEDURES=========== #
 
 try:
-    # f = Thread(target=fetch_state)
-    # f.daemon = True
-    # timer = Thread(target=timer)
-    # timer.daemon = True
+    f = Thread(target=fetch_state)
+    f.daemon = True
+    timer = Thread(target=timer)
+    timer.daemon = True
     s = Thread(target=add_transaction)
     s.daemon = True
     s.start()
-    # f.start()
-    # timer.start()
+    f.start()
+    timer.start()
 except KeyboardInterrupt as e:
     raise e
     pass

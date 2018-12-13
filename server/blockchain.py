@@ -176,14 +176,15 @@ class BlockChain(object):
         if self.validate_blockchain(blockchain) is True and len(blockchain.blocks()) > len(self._blocks):
             self.switch_blockchain(blockchain)
         else:
-            print("Blockchain is invalid or not longer than current chain...no fork will be executed")
-            raise Exception(colored("Fork aborted", "red"))
+            print(colored("FORK UNSUCCESSFUL: Blockchain is invalid or not longer than current chain...no fork will be executed"))
+            # raise Exception(colored("Fork aborted", "red"))
 
     def switch_blockchain(self, blockchain):
         self._blocks = blockchain.blocks()
         self._state = {}
         self._genesis = self._blocks[0]
         map(lambda block: self.execute_txns(block), self._blocks)
+        print(colored("FORK SUCCESSFUL: Blockchain was switched over to another longer chain"))
 
 # TEST CODE here
 if __name__ == "__main__":
