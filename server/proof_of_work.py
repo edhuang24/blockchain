@@ -20,6 +20,11 @@ max_nonce = 2 ** 32
 cache = []
 
 def mint(challenge, work_factor):
+    """function(str, int) -> [str, int, float]
+
+    Takes in a challenge and work_factor/difficulty and returns a token
+    that includes the SHA-256 hash result, nonce, and current time in seconds
+    """
     current_time = time.ctime()
     for nonce in xrange(max_nonce):
         hash_result = hashlib.sha256(str(challenge) + str(current_time) + str(nonce)).hexdigest()
@@ -31,11 +36,17 @@ def mint(challenge, work_factor):
             token = [hash_result, nonce, current_time]
             return token
 
-    return "failed to match challenge"
+    print("failed to match challenge")
+    return None
 
 def verify(challenge, work_factor, token):
-    # if token[0] in cache:
-    #     return False
+    """function(str, int, str) -> bool
+
+    Takes in a challenge, work_factor/difficulty, & token and confirms whether
+    the token solves the challenge
+    """
+    if token[0] in cache:
+        return False
 
     token_hash = hashlib.sha256(str(challenge) + str(token[2]) + str(token[1])).hexdigest()
     if token_hash == token[0]:

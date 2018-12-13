@@ -16,27 +16,7 @@ import uuid
 import ipdb
 from blockchain import *
 
-# message = [favorite_book, version_number]
-# state = {
-#     port1: [favorite_book, version_number],
-#     port2: [favorite_book, version_number],
-#     port3: [favorite_book, version_number],
-#     port4: [favorite_book, version_number]
-# }
-
-STATE = {}
-PREVIOUS_STATE = {}
-TIMES = {}
-MAX_PEERS = 5
-
-PRIV_KEY = RSA.generate(1024, Random.new().read)
-PUB_KEY = PRIV_KEY.publickey()
-SERVER_PRINT_STATE = True
-
-def s_print(msg):
-    global SERVER_PRINT_STATE
-    if SERVER_PRINT_STATE is True:
-        print(msg)
+# ===========BEGIN: FLASK SERVER LOGIC=========== #
 
 app = Flask(__name__, static_folder="../client/static", template_folder="../client/templates")
 
@@ -66,10 +46,70 @@ def get_pubkey():
 if __name__ == "__main__":
     app.run()
 
-# STATE = state.STATE
+# ===========END: FLASK SERVER LOGIC=========== #
+
+# ===========BEGIN: SET GLOBAL VARIABLES & HELPERS=========== #
+
+STATE = {}
+PREVIOUS_STATE = {}
+TIMES = {}
+MAX_PEERS = 5
+
+priv_key = RSA.generate(1024, Random.new().read)
+PRIV_KEY = priv_key.exportKey()
+PUB_KEY = priv_key.publickey().exportKey()
+SERVER_PRINT_STATE = True
+
+# ===========END: SET GLOBAL VARIABLES & HELPERS=========== #
+
+# ===========BEGIN: BLOCKCHAIN HELPERS=========== #
+
+def s_print(msg):
+    global SERVER_PRINT_STATE
+    if SERVER_PRINT_STATE is True:
+        print(msg)
+
+def encode_object(object):
+    bytes = pickle.dumps(object)
+    return codecs.encode(bytes, "base64")
+
+def decode_object(encoded_object):
+    decoded = codecs.decode(encoded_object, "base64")
+    return pickle.loads(decoded)
+
+def parse_blockchain(blockchain):
+    return "{0}{1} block length: {2}, truncated base64: {3} {4}".format(blockchain.__repr__(), "{", len(blockchain.blocks()), encoded_blockchain[0:10], "}")
+
+# ===========END: BLOCKCHAIN HELPERS=========== #
+
+# ===========BEGIN: INITIALIZE STATE=========== #
+
 # PORT, PEER_PORTS = sys.argv[1], sys.argv[2]
 PORT, peer_ports = os.environ.get("PORT"), os.environ.get("PEER_PORTS")
 PEER_PORTS = []
+
+encoded_blockchain = open("seed.txt", "r").read()
+BLOCKCHAIN = decode_object(encoded_blockchain)
+satoshi_pubkey = open("satoshi_pubkey.txt").read()
+satoshi_privkey = open("satoshi_privkey.txt").read()
+
+version_number = 0
+s_print("blockchain is {0}".format(colored(encoded_blockchain[0:10], "green")))
+
+initial_state = {
+    PORT: {
+        "UUID": uuid.uuid4().int,
+        "blockchain": encode_object(BLOCKCHAIN),
+        "parsed_blockchain": parse_blockchain(BLOCKCHAIN),
+        "mem_pool": [],
+        "version_number": version_number,
+        "ttl": time.time() + 60*1
+    }
+}
+
+# ===========END: INITIALIZE STATE=========== #
+
+# ===========BEGIN: SERVER HELPERS=========== #
 
 if peer_ports is not None:
     peer_ports = peer_ports.split(",")
@@ -97,6 +137,8 @@ def update_state(data):
             # add port to PEER_PORTS if PEER_PORTS count still less than than MAX_PEERS
             if len(PEER_PORTS) < MAX_PEERS and port not in PEER_PORTS:
                 PEER_PORTS.append(port)
+
+            if
             STATE[port] = msg_data
 
 def render_state():
@@ -108,42 +150,48 @@ def render_state():
             s_print(colored("coming from {0}: port {1} => {2}".format(PORT, peer_port, msg_data["parsed_blockchain"]), "red"))
     # s_print(colored("rendering state from client: " + json.dumps(STATE), "green"))
 
+# ===========BEGIN: SERVER HELPERS=========== #
+
+# ===========BEGIN: SERVER PROCEDURES=========== #
+
 build_state(PORT, PEER_PORTS)
-
-encoded_blockchain = open("seed.txt", "r").read()
-blockchain = pickle.loads(codecs.decode(encoded_blockchain, "base64"))
-
-version_number = 0
-s_print("blockchain is {0}".format(colored(encoded_blockchain[0:10], "green")))
-
-initial_state = {
-    PORT: {
-        "UUID": uuid.uuid4().int,
-        "blockchain": encoded_blockchain,
-        "parsed_blockchain": "{0}{1} block length: {2}, truncated base64: {3} {4}".format(blockchain.__repr__(), "{", len(blockchain.blocks()), encoded_blockchain[0:10], "}"),
-        "mem_pool": [],
-        "version_number": version_number,
-        "ttl": time.time() + 60*1
-    }
-}
-
 update_state(initial_state)
 render_state()
 
 def add_transaction():
-    global encoded_blockchain
+    global STATE
+    global BLOCKCHAIN
     global version_number
     while True:
-        time.sleep(15)
-        # new_transaction = Transaction()
+        # rand_sec = random.randint(1, 15)
+        rand_sec = 2
+        time.sleep(rand_sec)
+        # rand_idx = random(0, len(STATE.keys()))
+        # rand_port = STATE.keys()[rand_idx]
         new_state = {
             "UUID": uuid.uuid4().int,
-            "blockchain": encoded_blockchain,
-            "parsed_blockchain": "{0}{1} block length: {2}, truncated base64: {3} {4}".format(blockchain.__repr__(), "{", len(blockchain.blocks()), encoded_blockchain[0:10], "}"),
-            "mem_pool": STATE["mem_pool"].append(new_transaction),
+            "blockchain": STATE[PORT]["blockchain"],
+            "parsed_blockchain": STATE[PORT]["parsed_blockchain"],
+            "mem_pool": STATE[PORT]["mem_pool"],
             "version_number": version_number + 1,
             "ttl": time.time() + 60*1
         }
+
+        if len(STATE[PORT]["mem_pool"]) >= 2:
+            txns = STATE[PORT]["mem_pool"][:2]
+            new_state["mem_pool"] = STATE[PORT]["mem_pool"][2:]
+            txns = map(lambda txn: decode_object(txn), txns)
+            latest_block = BLOCKCHAIN.blocks()[-1]
+            # ipdb.set_trace()
+            new_block = Block(txns, latest_block.hash())
+            BLOCKCHAIN.append(new_block)
+            new_state["blockchain"] = encode_object(BLOCKCHAIN)
+            new_state["parsed_blockchain"] = parse_blockchain(BLOCKCHAIN)
+        else:
+            new_txn = Transaction(satoshi_pubkey, PUB_KEY, 50, satoshi_privkey)
+            encoded_txn = encode_object(new_txn)
+            new_state["mem_pool"].append(encoded_txn)
+
         update_state({PORT: new_state})
         render_state()
 
@@ -197,16 +245,18 @@ def timer():
     pid = os.getpid()
     os.kill(pid, signal.SIGINT)
 
+# ===========BEGIN: SERVER PROCEDURES=========== #
+
 try:
-    f = Thread(target=fetch_state)
-    f.daemon = True
-    timer = Thread(target=timer)
-    timer.daemon = True
+    # f = Thread(target=fetch_state)
+    # f.daemon = True
+    # timer = Thread(target=timer)
+    # timer.daemon = True
     s = Thread(target=add_transaction)
     s.daemon = True
     s.start()
-    f.start()
-    timer.start()
+    # f.start()
+    # timer.start()
 except KeyboardInterrupt as e:
     raise e
     pass

@@ -10,6 +10,7 @@ from proof_of_work import *
 
 class Transaction(object):
     def __init__(self, from_address, to_address, amount, private_key):
+        # ipdb.set_trace()
         self._from = from_address
         self._to = to_address
         self._amount = amount
@@ -51,6 +52,10 @@ class Transaction(object):
 
 class Block(object):
     def __init__(self, transactions, previous_hash):
+        """
+        initialize with array of transactions and the hash of the previous block
+        """
+        # ipdb.set_trace()
         if self.validate_transactions(transactions):
             merkle_tree = MerkleTree(transactions)
             self._leaves = merkle_tree.leaves()

@@ -20,9 +20,9 @@ blockchain = BlockChain(50000, satoshi_pubkey, satoshi_privkey)
 genesis_block = blockchain.blocks()[0]
 print(genesis_block.validate_nonce(genesis_block.nonce()))
 
-txn1 = Transaction(satoshi_pubkey, alice_pubkey, 15, satoshi_privkey)
-txn2 = Transaction(satoshi_pubkey, bob_pubkey, 15, satoshi_privkey)
-new_block = Block([txn1, txn2], genesis_block.hash)
+txn1 = Transaction(satoshi_pubkey, alice_pubkey, 200, satoshi_privkey)
+txn2 = Transaction(satoshi_pubkey, bob_pubkey, 200, satoshi_privkey)
+new_block = Block([txn1, txn2], genesis_block.hash())
 
 blockchain.append(new_block)
 
@@ -42,3 +42,6 @@ with open("bob_pubkey.txt", "w") as new_file:
 
 with open("satoshi_pubkey.txt", "w") as new_file:
     new_file.write(satoshi_pubkey)
+
+with open("satoshi_privkey.txt", "w") as new_file:
+    new_file.write(satoshi_privkey)
