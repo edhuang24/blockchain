@@ -66,7 +66,7 @@ class Block(object):
             self._timestamp = None
             txns_string = "".join(map(lambda txn: txn.to_string(), transactions))
             # NOTE: this is where the work factor is inserted
-            self.block_mint(txns_string, 1)
+            self.block_mint(txns_string, 4)
         else:
             return
 
@@ -89,7 +89,7 @@ class Block(object):
         token = mint(challenge, work_factor)
         self._hash = token[0]
         self._nonce = token[1]
-        self._timestamp = time.ctime() # make sure not to use time.time()
+        self._timestamp = token[2] # make sure not to use time.time()
 
     def create_genesis_block(self, to_address, amount, priv_key):
         genesis_txn = Transaction(None, to_address, 50, priv_key)
@@ -156,11 +156,17 @@ class BlockChain(object):
     def validate_blockchain(self, blockchain):
         for block in blockchain.blocks():
             if blockchain.validate_block(block) == False:
+                print(colored("ERROR CAME FROM validate_block", "red"))
+                ipdb.set_trace()
                 return False
             if block.validate_nonce(block.nonce()) == False:
+                print(colored("ERROR CAME FROM validate_nonce", "red"))
+                ipdb.set_trace()
                 return False
             for leaf in block.leaves():
                 if leaf.txn().validate_signature() == False:
+                    print(colored("ERROR CAME FROM validate_signature", "red"))
+                    ipdb.set_trace()
                     return False
 
         return True
@@ -177,17 +183,19 @@ class BlockChain(object):
 
     def decide_fork(self, blockchain):
         if self.validate_blockchain(blockchain) is True and len(blockchain.blocks()) > len(self._blocks):
-            self.switch_blockchain(blockchain)
+            return self.switch_blockchain(blockchain)
         else:
-            print(colored("FORK UNSUCCESSFUL: Blockchain is invalid or not longer than current chain...no fork will be executed"))
+            print(colored("FORK UNSUCCESSFUL: Blockchain is invalid or not longer than current chain...no fork will be executed", "red"))
             # raise Exception(colored("Fork aborted", "red"))
+            return False
 
     def switch_blockchain(self, blockchain):
         self._blocks = blockchain.blocks()
         self._state = {}
         self._genesis = self._blocks[0]
         map(lambda block: self.execute_txns(block), self._blocks)
-        print(colored("FORK SUCCESSFUL: Blockchain was switched over to another longer chain"))
+        print(colored("FORK SUCCESSFUL: Blockchain was switched over to another longer chain", "green"))
+        return True
 
 # TEST CODE here
 if __name__ == "__main__":

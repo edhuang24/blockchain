@@ -19,6 +19,7 @@ import ipdb
 max_nonce = 2 ** 32
 cache = []
 
+# TODO: IMPROVE THIS TO USE BIT DIFFICULTY INSTEAD OF HEX WORK FACTOR
 def mint(challenge, work_factor):
     """function(str, int) -> [str, int, float]
 
@@ -28,10 +29,11 @@ def mint(challenge, work_factor):
     current_time = time.ctime()
     for nonce in xrange(max_nonce):
         hash_result = hashlib.sha256(str(challenge) + str(current_time) + str(nonce)).hexdigest()
-        print([nonce, current_time, hash_result])
+        if (nonce % 10000) == 0:
+            print([nonce, current_time, hash_result])
 
         if hash_result[:work_factor] == "0" * work_factor:
-            # print nonce, hash_result
+            print([nonce, current_time, hash_result])
             append_to_cache(hash_result)
             token = [hash_result, nonce, current_time]
             return token
