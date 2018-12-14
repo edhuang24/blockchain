@@ -147,6 +147,7 @@ class BlockChain(object):
 
         for leaf in block.leaves():
             if leaf.txn().from_address() is None or leaf.txn().from_address() not in dup_state:
+                print(self._state)
                 ipdb.set_trace()
                 return False
             elif leaf.txn().from_address() is not None and leaf.txn().from_address() in dup_state:

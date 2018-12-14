@@ -161,7 +161,7 @@ def update_state(data):
                 STATE[port] = msg_data
                 if BLOCKCHAIN is None and msg_data["blockchain"] is not None:
                     BLOCKCHAIN = msg_blockchain
-                    s_print(colored("found blockchain on network", "green"))
+                    print(colored("found blockchain on network", "green"))
 
             if STATE[port]["version_number"] < msg_data["version_number"]:
                 STATE[port] = msg_data
@@ -169,6 +169,7 @@ def update_state(data):
                     msg_blockchain = decode_object(msg_data["blockchain"])
                     if BLOCKCHAIN is None:
                         BLOCKCHAIN = msg_blockchain
+                        print(colored("found blockchain on network", "green"))
                     else:
                         self_len = len(BLOCKCHAIN.blocks())
                         new_blocks = msg_blockchain.blocks()[self_len:]
@@ -238,7 +239,7 @@ def evaluate_state():
                     port = peers[random_idx]
                     peer_pubkey = client.get_pubkey(port)
                     new_txn = Transaction(PUB_KEY, peer_pubkey, 250, PRIV_KEY)
-                    print(PUB_KEY)
+                    # print(PUB_KEY)
                     encoded_txn = encode_object(new_txn)
                     STATE[PORT]["mem_pool"].append(encoded_txn)
                 elif BLOCKCHAIN.state()[PUB_KEY] > 1000:
@@ -247,7 +248,7 @@ def evaluate_state():
                     port = peers[random_idx]
                     peer_pubkey = client.get_pubkey(port)
                     new_txn = Transaction(PUB_KEY, peer_pubkey, 10, PRIV_KEY)
-                    print(PUB_KEY)
+                    # print(PUB_KEY)
                     encoded_txn = encode_object(new_txn)
                     STATE[PORT]["mem_pool"].append(encoded_txn)
 
