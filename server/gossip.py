@@ -1,6 +1,6 @@
 import random
 import requests
-from flask import Flask, jsonify, request, make_response, render_template
+from flask import Flask, jsonify, request, make_response, render_template, render_template_string
 from threading import Thread
 from multiprocessing import Process, Manager, Value
 from termcolor import colored
@@ -51,9 +51,10 @@ def gossip():
     # s_print(colored("rendering state from server:" + json.dumps(STATE), "red"))
     return jsonify(STATE)
 
-@app.route('/api/getpubkey')
+@app.route('/api/getpubkey', methods=['POST'])
 def get_pubkey():
-    return PUB_KEY.exportKey()
+    # return render_template_string(PUB_KEY.exportKey())
+    return PUB_KEY
 
 @app.route('/api/state')
 def get_state():
@@ -88,7 +89,7 @@ def decode_object(encoded_object):
     return pickle.loads(decoded)
 
 def parse_blockchain(blockchain):
-    return "{0}{1} block length: {2}, truncated base64: {3} {4}".format(blockchain.__repr__(), "{", len(blockchain.blocks()), encoded_blockchain[0:10], "}")
+    return "{0}{1} block length: {2}, truncated base64: {3} {4}".format(blockchain.__repr__(), "{", len(blockchain.blocks()), encode_object(blockchain)[0:10], "}")
 
 # ===========END: BLOCKCHAIN HELPERS=========== #
 
@@ -103,6 +104,7 @@ PEER_PORTS = []
 #
 # encoded_blockchain = open("seed.txt", "r").read()
 # BLOCKCHAIN = decode_object(encoded_blockchain)
+
 BLOCKCHAIN = None
 
 # s_print("blockchain is {0}".format(colored(encoded_blockchain[0:10], "green")))
@@ -144,7 +146,6 @@ def build_state(port, peer_ports):
 # TODO: REFACTOR THIS TO USE PEER_PORTS INSTEAD OF FLOODING
 def update_state(data):
     global STATE
-    global MEM_POOL
     global BLOCKCHAIN
     global DEBUG
     global version_number
@@ -158,23 +159,29 @@ def update_state(data):
 
             if port not in STATE.keys() or STATE[port] is None:
                 STATE[port] = msg_data
+                if BLOCKCHAIN is None and msg_data["blockchain"] is not None:
+                    BLOCKCHAIN = msg_blockchain
+                    s_print(colored("found blockchain on network", "green"))
 
             if STATE[port]["version_number"] < msg_data["version_number"]:
                 STATE[port] = msg_data
                 if msg_data["blockchain"] is not None:
                     msg_blockchain = decode_object(msg_data["blockchain"])
-                    self_len = len(BLOCKCHAIN.blocks())
-                    new_blocks = msg_blockchain.blocks()[self_len:]
-                    fork_executed = BLOCKCHAIN.decide_fork(msg_blockchain)
-                    # iterate over the blocks & leaves to grab the txns
-                    if fork_executed is True:
-                        for block in new_blocks:
-                            for leaf in block.leaves():
-                                encoded_txn = encode_object(leaf.txn())
-                                if encoded_txn in STATE[PORT]["mem_pool"]:
-                                    # remove the new transactions from my mempool so I don't mine them later
-                                    # NOTE: they should have already been removed from the peer mempool when they were mined by the peer
-                                    STATE[PORT]["mem_pool"].remove(encode_object(leaf.txn()))
+                    if BLOCKCHAIN is None:
+                        BLOCKCHAIN = msg_blockchain
+                    else:
+                        self_len = len(BLOCKCHAIN.blocks())
+                        new_blocks = msg_blockchain.blocks()[self_len:]
+                        fork_executed = BLOCKCHAIN.decide_fork(msg_blockchain)
+                        # iterate over the blocks & leaves to grab the txns
+                        if fork_executed is True:
+                            for block in new_blocks:
+                                for leaf in block.leaves():
+                                    encoded_txn = encode_object(leaf.txn())
+                                    if encoded_txn in STATE[PORT]["mem_pool"]:
+                                        # remove the new transactions from my mempool so I don't mine them later
+                                        # NOTE: they should have already been removed from the peer mempool when they were mined by the peer
+                                        STATE[PORT]["mem_pool"].remove(encode_object(leaf.txn()))
 
             # after flushing my mempool, combine it with other mempool
             combined_mempool = list(set(STATE[PORT]["mem_pool"] + msg_data["mem_pool"]))
@@ -202,21 +209,20 @@ render_state()
 
 def evaluate_state():
     global STATE
-    global MEM_POOL
     global BLOCKCHAIN
     global DEBUG
     while True:
         if DEBUG is True:
             time.sleep(1000)
         # sec = random.randint(1, 15)
-        sec = 3
+        sec = 5
         print(colored("sleeping {0} sec".format(sec), "yellow"))
         time.sleep(sec)
 
         if BLOCKCHAIN is None:
-            BLOCKCHAIN = BlockChain(50, PUB_KEY, PRIV_KEY)
-        elif len(MEM_POOL) > 1:
-            txns = MEM_POOL[:2]
+            BLOCKCHAIN = BlockChain(50000, PUB_KEY, PRIV_KEY)
+        elif len(STATE[PORT]["mem_pool"]) > 1:
+            txns = STATE[PORT]["mem_pool"][:2]
             txns = map(lambda txn: decode_object(txn), txns)
             latest_block = BLOCKCHAIN.blocks()[-1]
             new_block = Block(txns, latest_block.hash())
@@ -225,9 +231,25 @@ def evaluate_state():
             if appended is True:
                 STATE[PORT]["mem_pool"] = STATE[PORT]["mem_pool"][2:]
         else:
-            new_txn = Transaction(satoshi_pubkey, PUB_KEY, 50, satoshi_privkey)
-            encoded_txn = encode_object(new_txn)
-            STATE[PORT]["mem_pool"].append(encoded_txn)
+            if PUB_KEY in BLOCKCHAIN.state().keys():
+                if BLOCKCHAIN.state()[PUB_KEY] > 40000:
+                    peers = STATE.keys()
+                    random_idx = random.randint(0, len(peers) - 1)
+                    port = peers[random_idx]
+                    peer_pubkey = client.get_pubkey(port)
+                    new_txn = Transaction(PUB_KEY, peer_pubkey, 250, PRIV_KEY)
+                    print(PUB_KEY)
+                    encoded_txn = encode_object(new_txn)
+                    STATE[PORT]["mem_pool"].append(encoded_txn)
+                elif BLOCKCHAIN.state()[PUB_KEY] > 1000:
+                    peers = STATE.keys()
+                    random_idx = random.randint(0, len(peers) - 1)
+                    port = peers[random_idx]
+                    peer_pubkey = client.get_pubkey(port)
+                    new_txn = Transaction(PUB_KEY, peer_pubkey, 10, PRIV_KEY)
+                    print(PUB_KEY)
+                    encoded_txn = encode_object(new_txn)
+                    STATE[PORT]["mem_pool"].append(encoded_txn)
 
         new_state = {
             "UUID": uuid.uuid4().int,

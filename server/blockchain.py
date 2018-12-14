@@ -147,12 +147,14 @@ class BlockChain(object):
 
         for leaf in block.leaves():
             if leaf.txn().from_address() is None or leaf.txn().from_address() not in dup_state:
+                ipdb.set_trace()
                 return False
             elif leaf.txn().from_address() is not None and leaf.txn().from_address() in dup_state:
                 dup_state[leaf.txn().from_address()] = dup_state[leaf.txn().from_address()] - leaf.txn().amount()
 
         for key in dup_state:
             if dup_state[key] < 0:
+                ipdb.set_trace()
                 return False
 
         return True
