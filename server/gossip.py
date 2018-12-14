@@ -153,14 +153,13 @@ def update_state(data):
             if len(PEER_PORTS) < MAX_PEERS and port not in PEER_PORTS:
                 PEER_PORTS.append(port)
 
-            if port not in STATE.keys():
-                STATE[port] = None
-
-            msg_blockchain = decode_object(msg_data["blockchain"])
-            self_len = len(BLOCKCHAIN.blocks())
-
-            if STATE[port] is None:
+            if port not in STATE.keys() or STATE[port] is None:
                 STATE[port] = msg_data
+
+            if STATE[port]["version_number"] < msg_data["version_number"]:
+                STATE[port] = msg_data
+                msg_blockchain = decode_object(msg_data["blockchain"])
+                self_len = len(BLOCKCHAIN.blocks())
                 new_blocks = msg_blockchain.blocks()[self_len:]
                 fork_executed = BLOCKCHAIN.decide_fork(msg_blockchain)
                 # iterate over the blocks & leaves to grab the txns
@@ -172,45 +171,6 @@ def update_state(data):
                                 # remove the new transactions from my mempool so I don't mine them later
                                 # NOTE: they should have already been removed from the peer mempool when they were mined by the peer
                                 MEM_POOL.remove(encode_object(leaf.txn()))
-            else:
-                if msg_data["originating_port"] != PORT:
-                    if STATE[port]["version_number"] < msg_data["version_number"]:
-                        STATE[port] = msg_data
-                        new_blocks = msg_blockchain.blocks()[self_len:]
-                        fork_executed = BLOCKCHAIN.decide_fork(msg_blockchain)
-                        # iterate over the blocks & leaves to grab the txns
-                        if fork_executed is True:
-                            for block in new_blocks:
-                                for leaf in block.leaves():
-                                    encoded_txn = encode_object(leaf.txn())
-                                    if encoded_txn in MEM_POOL:
-                                        # remove the new transactions from my mempool so I don't mine them later
-                                        # NOTE: they should have already been removed from the peer mempool when they were mined by the peer
-                                        MEM_POOL.remove(encode_object(leaf.txn()))
-                else:
-                    if STATE[port]["version_number"] < msg_data["version_number"]:
-                        STATE[port] = msg_data
-            #
-            # msg_blockchain = decode_object(msg_data["blockchain"])
-            # diff = len(msg_blockchain.blocks()) - len(BLOCKCHAIN.blocks())
-            # # refactor this to use peer ports, not just every other port in the STATE
-            # if port != PORT:
-            #     # s_print(colored("Difference: ", "yellow") + colored(len(msg_blockchain.blocks()) - len(BLOCKCHAIN.blocks()), "yellow"))
-            #     if diff > 0:
-                    # self_len = len(BLOCKCHAIN.blocks())
-                    # new_blocks = msg_blockchain.blocks()[self_len:]
-            #         fork_executed = BLOCKCHAIN.decide_fork(msg_blockchain)
-            #         # msg_mempool = msg_data["mem_pool"]
-            #
-            #         # iterate over the blocks & leaves to grab the txns
-            #         if fork_executed is True:
-            #             for block in new_blocks:
-            #                 for leaf in block.leaves():
-            #                     encoded_txn = encode_object(leaf.txn())
-            #                     if encoded_txn in MEM_POOL:
-            #                         # remove the new transactions from my mempool so I don't mine them later
-            #                         # NOTE: they should have already been removed from the peer mempool when they were mined by the peer
-            #                         MEM_POOL.remove(encode_object(leaf.txn()))
 
             # after flushing mempools, combine mempools
             combined_mempool = list(set(MEM_POOL + msg_data["mem_pool"]))
