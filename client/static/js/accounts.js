@@ -20,7 +20,7 @@ setInterval(function () {
       document.getElementById("accounts").innerHTML = "";
 
       Object.keys(window.accounts).forEach(function (account_key, idx) {
-        account_colors[account_key] = index_colors[idx]
+        account_colors[account_key] = index_colors[idx];
       });
 
       Object.keys(window.accounts).forEach(function (account_key) {

@@ -22,7 +22,7 @@ setInterval(function () {
         block_length = split_string[0].slice(idx + 8, split_string[0].length)
         el = `<span style="color: darkorange; font-weight: bold;">${block_length}</span>`
         new_string = split_string[0].slice(0, idx + 8) + el + ", " + split_string[1]
-        let state_div = `<p class="state-line" style="color: ${colors[port]}">[PORT ${port}]: ${new_string}</p>`;
+        let state_div = `<p class="state-line" style="color: ${colors[port]}; font-size: 14.5px;">[PORT ${port}]: ${new_string}</p>`;
         document.getElementById("state").innerHTML += state_div;
       });
   });

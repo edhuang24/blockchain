@@ -3,4 +3,9 @@ div.port-header {
   width: 400px;
   text-align: center;
   font-weight: bold;
+  padding: 5px 0px 10px 0px;
+}
+
+div#state {
+
 }
