@@ -29,7 +29,7 @@ MAX_PEERS = 5
 
 PRIV_KEY = RSA.generate(1024, Random.new().read)
 PUB_KEY = PRIV_KEY.publickey()
-SERVER_PRINT_STATE = False
+SERVER_PRINT_STATE = True
 
 def s_print(msg):
     global SERVER_PRINT_STATE
@@ -88,6 +88,7 @@ def build_state(port, peer_ports):
 
 def update_state(data):
     global STATE
+    global version_number
     for port, book_data in data.items():
         if port is None or book_data is None:
             continue
@@ -95,7 +96,28 @@ def update_state(data):
             # add port to PEER_PORTS if PEER_PORTS count still less than than MAX_PEERS
             if len(PEER_PORTS) < MAX_PEERS and port not in PEER_PORTS:
                 PEER_PORTS.append(port)
-            STATE[port] = book_data
+            # if port == PORT and STATE[PORT] is not None:
+            #     if STATE[PORT][1] < book_data[1]:
+            #         STATE[port] = book_data
+            # else:
+            #     STATE[port] = book_data
+
+            # s_print(STATE[port])
+            # s_print(book_data)
+            # STATE[port] = book_data
+            if port not in STATE.keys():
+                STATE[port] = None
+
+            if STATE[port] is None:
+                if book_data is not None:
+                    # s_print(STATE[port])
+                    # s_print(book_data)
+                    STATE[port] = book_data
+            else:
+                if STATE[port][1] <= book_data[1]:
+                    # s_print(STATE[port])
+                    # s_print(book_data)
+                    STATE[port] = book_data
 
 def render_state():
     global PORT
@@ -147,7 +169,8 @@ def select_books():
     global favorite_book
     global version_number
     while True:
-        time.sleep(15)
+        sec = random.randint(1, 15)
+        time.sleep(sec)
         s_print("i don't like {0} anymore".format(colored(favorite_book, "green")))
         favorite_book = random.choice(books)
         s_print("my {0} favorite book is {1}".format(colored("new", "green"), colored(favorite_book, "green")))
