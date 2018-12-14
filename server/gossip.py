@@ -96,15 +96,7 @@ def update_state(data):
             # add port to PEER_PORTS if PEER_PORTS count still less than than MAX_PEERS
             if len(PEER_PORTS) < MAX_PEERS and port not in PEER_PORTS:
                 PEER_PORTS.append(port)
-            # if port == PORT and STATE[PORT] is not None:
-            #     if STATE[PORT][1] < book_data[1]:
-            #         STATE[port] = book_data
-            # else:
-            #     STATE[port] = book_data
 
-            # s_print(STATE[port])
-            # s_print(book_data)
-            # STATE[port] = book_data
             if port not in STATE.keys():
                 STATE[port] = None
 
