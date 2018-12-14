@@ -184,12 +184,13 @@ class BlockChain(object):
             self._state[leaf.txn().to_address()] += leaf.txn().amount()
 
     def decide_fork(self, blockchain):
-        if self.validate_blockchain(blockchain) is True and len(blockchain.blocks()) > len(self._blocks):
-            return self.switch_blockchain(blockchain)
-        else:
-            print(colored("FORK UNSUCCESSFUL: Blockchain is invalid or not longer than current chain...no fork will be executed", "red"))
-            # raise Exception(colored("Fork aborted", "red"))
+        if len(blockchain.blocks()) <= len(self._blocks):
             return False
+        elif self.validate_blockchain(blockchain) is False:
+            print(colored("FORK UNSUCCESSFUL: Blockchain is invalid...no fork will be executed", "red"))
+            return False
+        else:
+            return self.switch_blockchain(blockchain)
 
     def switch_blockchain(self, blockchain):
         self._blocks = blockchain.blocks()

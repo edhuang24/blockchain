@@ -27,7 +27,7 @@ MAX_PEERS = 5
 priv_key = RSA.generate(1024, Random.new().read)
 PRIV_KEY = priv_key.exportKey()
 PUB_KEY = priv_key.publickey().exportKey()
-SERVER_PRINT_STATE = False
+SERVER_PRINT_STATE = True
 
 # ===========END: SET GLOBAL VARIABLES & HELPERS=========== #
 
@@ -102,16 +102,16 @@ encoded_blockchain = open("seed.txt", "r").read()
 BLOCKCHAIN = decode_object(encoded_blockchain)
 MEM_POOL = []
 
-version_number = 0
 s_print("blockchain is {0}".format(colored(encoded_blockchain[0:10], "green")))
 
 initial_state = {
     PORT: {
         "UUID": uuid.uuid4().int,
+        "originating_port": PORT,
         "blockchain": encode_object(BLOCKCHAIN),
         "parsed_blockchain": parse_blockchain(BLOCKCHAIN),
         "mem_pool": MEM_POOL,
-        "version_number": version_number,
+        "version_number": 0,
         "ttl": time.time() + 60*1
     }
 }
@@ -131,6 +131,7 @@ if peer_ports is not None:
 
 def build_state(port, peer_ports):
     global STATE
+    global version_number
     STATE[port] = None
     if len(peer_ports) > 0:
         for peer_port in peer_ports:
@@ -143,6 +144,7 @@ def update_state(data):
     global MEM_POOL
     global BLOCKCHAIN
     global DEBUG
+    global version_number
     for port, msg_data in data.items():
         if port is None or msg_data is None:
             continue
@@ -151,45 +153,77 @@ def update_state(data):
             if len(PEER_PORTS) < MAX_PEERS and port not in PEER_PORTS:
                 PEER_PORTS.append(port)
 
-            if port != PORT:
-                peer_blockchain = decode_object(msg_data["blockchain"])
-                diff = len(peer_blockchain.blocks()) - len(BLOCKCHAIN.blocks())
-                # s_print(colored("Difference: ", "yellow") + colored(len(peer_blockchain.blocks()) - len(BLOCKCHAIN.blocks()), "yellow"))
-                if diff > 0:
-                    self_len = len(BLOCKCHAIN.blocks())
-                    new_blocks = peer_blockchain.blocks()[self_len:]
-                    fork_executed = BLOCKCHAIN.decide_fork(peer_blockchain)
-                    # peer_mempool = msg_data["mem_pool"]
+            if port not in STATE.keys():
+                STATE[port] = None
 
-                    # iterate over the blocks & leaves to grab the txns
-                    if fork_executed is True:
-                        for block in new_blocks:
-                            for leaf in block.leaves():
-                                encoded_txn = encode_object(leaf.txn())
-                                if encoded_txn in MEM_POOL:
-                                    # remove the new transactions from my mempool so I don't mine them later
-                                    # NOTE: they should have already been removed from the peer mempool when they were mined by the peer
-                                    MEM_POOL.remove(encode_object(leaf.txn()))
+            msg_blockchain = decode_object(msg_data["blockchain"])
+            self_len = len(BLOCKCHAIN.blocks())
 
+            if STATE[port] is None:
+                STATE[port] = msg_data
+                new_blocks = msg_blockchain.blocks()[self_len:]
+                fork_executed = BLOCKCHAIN.decide_fork(msg_blockchain)
+                # iterate over the blocks & leaves to grab the txns
+                if fork_executed is True:
+                    for block in new_blocks:
+                        for leaf in block.leaves():
+                            encoded_txn = encode_object(leaf.txn())
+                            if encoded_txn in MEM_POOL:
+                                # remove the new transactions from my mempool so I don't mine them later
+                                # NOTE: they should have already been removed from the peer mempool when they were mined by the peer
+                                MEM_POOL.remove(encode_object(leaf.txn()))
+            else:
+                if msg_data["originating_port"] != PORT:
+                    if STATE[port]["version_number"] < msg_data["version_number"]:
+                        STATE[port] = msg_data
+                        new_blocks = msg_blockchain.blocks()[self_len:]
+                        fork_executed = BLOCKCHAIN.decide_fork(msg_blockchain)
+                        # iterate over the blocks & leaves to grab the txns
+                        if fork_executed is True:
+                            for block in new_blocks:
+                                for leaf in block.leaves():
+                                    encoded_txn = encode_object(leaf.txn())
+                                    if encoded_txn in MEM_POOL:
+                                        # remove the new transactions from my mempool so I don't mine them later
+                                        # NOTE: they should have already been removed from the peer mempool when they were mined by the peer
+                                        MEM_POOL.remove(encode_object(leaf.txn()))
+                else:
+                    if STATE[port]["version_number"] < msg_data["version_number"]:
+                        STATE[port] = msg_data
+            #
+            # msg_blockchain = decode_object(msg_data["blockchain"])
+            # diff = len(msg_blockchain.blocks()) - len(BLOCKCHAIN.blocks())
+            # # refactor this to use peer ports, not just every other port in the STATE
+            # if port != PORT:
+            #     # s_print(colored("Difference: ", "yellow") + colored(len(msg_blockchain.blocks()) - len(BLOCKCHAIN.blocks()), "yellow"))
+            #     if diff > 0:
+                    # self_len = len(BLOCKCHAIN.blocks())
+                    # new_blocks = msg_blockchain.blocks()[self_len:]
+            #         fork_executed = BLOCKCHAIN.decide_fork(msg_blockchain)
+            #         # msg_mempool = msg_data["mem_pool"]
+            #
+            #         # iterate over the blocks & leaves to grab the txns
+            #         if fork_executed is True:
+            #             for block in new_blocks:
+            #                 for leaf in block.leaves():
+            #                     encoded_txn = encode_object(leaf.txn())
+            #                     if encoded_txn in MEM_POOL:
+            #                         # remove the new transactions from my mempool so I don't mine them later
+            #                         # NOTE: they should have already been removed from the peer mempool when they were mined by the peer
+            #                         MEM_POOL.remove(encode_object(leaf.txn()))
 
-            # DEBUG=True
-            # ipdb.set_trace()
-
-            if STATE[PORT] is not None:
-                # after flushing mempools, combine mempools
-                combined_mempool = list(set(MEM_POOL + msg_data["mem_pool"]))
-                # s_print("mempool length:" + str(len(combined_mempool)))
-                MEM_POOL = combined_mempool
-
-            STATE[port] = msg_data
+            # after flushing mempools, combine mempools
+            combined_mempool = list(set(MEM_POOL + msg_data["mem_pool"]))
+            # s_print("mempool length:" + str(len(combined_mempool)))
+            MEM_POOL = combined_mempool
 
 def render_state():
     global PORT
     global STATE
-    for peer_port, msg_data in STATE.items():
-        if peer_port is not None and msg_data is not None:
+    for port, msg_data in STATE.items():
+        if port is not None and msg_data is not None:
             truncated_blockchain = msg_data["blockchain"][0:10]
-            s_print(colored("coming from {0}: port {1} => {2}".format(PORT, peer_port, msg_data["parsed_blockchain"]), "red"))
+            s_print(colored("coming from {0}: port {1} => {2}, version: {3}".format(PORT, port, msg_data["parsed_blockchain"], msg_data["version_number"]), "red"))
     # s_print(colored("rendering state from client: " + json.dumps(STATE), "green"))
 
 # ===========BEGIN: SERVER HELPERS=========== #
@@ -205,7 +239,6 @@ def evaluate_state():
     global MEM_POOL
     global BLOCKCHAIN
     global DEBUG
-    global version_number
     while True:
         if DEBUG is True:
             time.sleep(1000)
@@ -217,10 +250,11 @@ def evaluate_state():
         # rand_port = STATE.keys()[rand_idx]
         new_state = {
             "UUID": uuid.uuid4().int,
+            "originating_port": PORT,
             "blockchain": encode_object(BLOCKCHAIN),
             "parsed_blockchain": parse_blockchain(BLOCKCHAIN),
             "mem_pool": MEM_POOL,
-            "version_number": version_number + 1,
+            "version_number": STATE[PORT]["version_number"] + 1,
             "ttl": time.time() + 60*1
         }
 
