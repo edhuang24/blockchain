@@ -133,9 +133,11 @@ class BlockChain(object):
             self.execute_txns(block)
             # self.print_state()
             self._blocks.append(block)
+            return True
         else:
             # raise Exception(colored("Block is invalid", "red"))
             print(colored("Block is invalid", "red"))
+            return False
 
     def validate_block(self, block):
         if block == self._genesis:

@@ -100,7 +100,6 @@ satoshi_privkey = open("satoshi_privkey.txt").read()
 
 encoded_blockchain = open("seed.txt", "r").read()
 BLOCKCHAIN = decode_object(encoded_blockchain)
-MEM_POOL = []
 
 s_print("blockchain is {0}".format(colored(encoded_blockchain[0:10], "green")))
 
@@ -110,7 +109,7 @@ initial_state = {
         "originating_port": PORT,
         "blockchain": encode_object(BLOCKCHAIN),
         "parsed_blockchain": parse_blockchain(BLOCKCHAIN),
-        "mem_pool": MEM_POOL,
+        "mem_pool": [],
         "version_number": 0,
         "ttl": time.time() + 60*1
     }
@@ -170,11 +169,10 @@ def update_state(data):
                             if encoded_txn in MEM_POOL:
                                 # remove the new transactions from my mempool so I don't mine them later
                                 # NOTE: they should have already been removed from the peer mempool when they were mined by the peer
-                                MEM_POOL.remove(encode_object(leaf.txn()))
+                                STATE[PORT]["mem_pool"].remove(encode_object(leaf.txn()))
 
-            # after flushing mempools, combine mempools
-            combined_mempool = list(set(MEM_POOL + msg_data["mem_pool"]))
-            # s_print("mempool length:" + str(len(combined_mempool)))
+            # after flushing my mempool, combine it with other mempool
+            combined_mempool = list(set(STATE[PORT]["mem_pool"] + msg_data["mem_pool"]))
             MEM_POOL = combined_mempool
 
 def render_state():
@@ -202,32 +200,32 @@ def evaluate_state():
     while True:
         if DEBUG is True:
             time.sleep(1000)
-        sec = random.randint(1, 15)
-        # sec = 15
+        # sec = random.randint(1, 15)
+        sec = 3
         print(colored("sleeping {0} sec".format(sec), "yellow"))
         time.sleep(sec)
-        # rand_idx = random(0, len(STATE.keys()))
-        # rand_port = STATE.keys()[rand_idx]
+
         new_state = {
             "UUID": uuid.uuid4().int,
             "originating_port": PORT,
             "blockchain": encode_object(BLOCKCHAIN),
             "parsed_blockchain": parse_blockchain(BLOCKCHAIN),
-            "mem_pool": MEM_POOL,
+            "mem_pool": STATE[PORT]["mem_pool"],
             "version_number": STATE[PORT]["version_number"] + 1,
             "ttl": time.time() + 60*1
         }
 
-        if len(MEM_POOL) >= 2:
+        if len(MEM_POOL) > 1:
             txns = MEM_POOL[:2]
             txns = map(lambda txn: decode_object(txn), txns)
             latest_block = BLOCKCHAIN.blocks()[-1]
-            # ipdb.set_trace()
             new_block = Block(txns, latest_block.hash())
-            BLOCKCHAIN.append(new_block)
-            new_state["mem_pool"] = MEM_POOL[2:]
-            new_state["blockchain"] = encode_object(BLOCKCHAIN)
-            new_state["parsed_blockchain"] = parse_blockchain(BLOCKCHAIN)
+            appended = BLOCKCHAIN.append(new_block)
+            print(appended)
+            if appended is True:
+                new_state["mem_pool"] = MEM_POOL[2:]
+                new_state["blockchain"] = encode_object(BLOCKCHAIN)
+                new_state["parsed_blockchain"] = parse_blockchain(BLOCKCHAIN)
         else:
             new_txn = Transaction(satoshi_pubkey, PUB_KEY, 50, satoshi_privkey)
             encoded_txn = encode_object(new_txn)
@@ -235,6 +233,7 @@ def evaluate_state():
 
         update_state({PORT: new_state})
         render_state()
+
 
 def fetch_state():
     global STATE
@@ -246,23 +245,16 @@ def fetch_state():
     while True:
         if DEBUG is True:
             time.sleep(1000)
-        time.sleep(5)
+        time.sleep(2)
         for port, book_data in STATE.items():
             if port == PORT:
                 continue
             if port in PEER_PORTS:
-                # s_print(colored("fetching update from {0}".format(port), "yellow"))
                 try:
+                    # s_print(colored("fetching update from {0}".format(port), "yellow"))
                     gossip_response = client.send_gossip(port, STATE)
                     # s_print(gossip_response.json())
                     update_state(gossip_response.json())
-                    if STATE[port]["blockchain"] != PREVIOUS_STATE[port]["blockchain"]:
-                        s_print(colored("new update from port {0}".format(port), "blue"))
-                        render_state()
-                        PREVIOUS_STATE = STATE.copy()
-                    else:
-                        # s_print(colored("no new update from port {0}".format(port), "blue"))
-                        continue
                 except StandardError as e:
                     failures += 1
                     if failures > 100:
