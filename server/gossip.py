@@ -27,7 +27,7 @@ MAX_PEERS = 5
 priv_key = RSA.generate(1024, Random.new().read)
 PRIV_KEY = priv_key.exportKey()
 PUB_KEY = priv_key.publickey().exportKey()
-SERVER_PRINT_STATE = True
+SERVER_PRINT_STATE = False
 
 # ===========END: SET GLOBAL VARIABLES & HELPERS=========== #
 
@@ -166,7 +166,7 @@ def update_state(data):
                     for block in new_blocks:
                         for leaf in block.leaves():
                             encoded_txn = encode_object(leaf.txn())
-                            if encoded_txn in MEM_POOL:
+                            if encoded_txn in STATE[PORT]["mem_pool"]:
                                 # remove the new transactions from my mempool so I don't mine them later
                                 # NOTE: they should have already been removed from the peer mempool when they were mined by the peer
                                 STATE[PORT]["mem_pool"].remove(encode_object(leaf.txn()))
