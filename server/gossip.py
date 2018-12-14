@@ -62,7 +62,10 @@ def get_state():
 @app.route('/api/balances')
 def get_balances():
     global BLOCKCHAIN
-    return jsonify(BLOCKCHAIN.state())
+    if BLOCKCHAIN is None:
+        return ('', 204)
+    else:
+        return jsonify(BLOCKCHAIN.state())
 
 if __name__ == "__main__":
     app.run()
@@ -95,20 +98,21 @@ def parse_blockchain(blockchain):
 PORT, peer_ports = os.environ.get("PORT"), os.environ.get("PEER_PORTS")
 PEER_PORTS = []
 
-satoshi_pubkey = open("satoshi_pubkey.txt").read()
-satoshi_privkey = open("satoshi_privkey.txt").read()
+# satoshi_pubkey = open("satoshi_pubkey.txt").read()
+# satoshi_privkey = open("satoshi_privkey.txt").read()
+#
+# encoded_blockchain = open("seed.txt", "r").read()
+# BLOCKCHAIN = decode_object(encoded_blockchain)
+BLOCKCHAIN = None
 
-encoded_blockchain = open("seed.txt", "r").read()
-BLOCKCHAIN = decode_object(encoded_blockchain)
-
-s_print("blockchain is {0}".format(colored(encoded_blockchain[0:10], "green")))
+# s_print("blockchain is {0}".format(colored(encoded_blockchain[0:10], "green")))
 
 initial_state = {
     PORT: {
         "UUID": uuid.uuid4().int,
         "originating_port": PORT,
-        "blockchain": encode_object(BLOCKCHAIN),
-        "parsed_blockchain": parse_blockchain(BLOCKCHAIN),
+        "blockchain": None,
+        "parsed_blockchain": None,
         "mem_pool": [],
         "version_number": 0,
         "ttl": time.time() + 60*1
@@ -157,31 +161,35 @@ def update_state(data):
 
             if STATE[port]["version_number"] < msg_data["version_number"]:
                 STATE[port] = msg_data
-                msg_blockchain = decode_object(msg_data["blockchain"])
-                self_len = len(BLOCKCHAIN.blocks())
-                new_blocks = msg_blockchain.blocks()[self_len:]
-                fork_executed = BLOCKCHAIN.decide_fork(msg_blockchain)
-                # iterate over the blocks & leaves to grab the txns
-                if fork_executed is True:
-                    for block in new_blocks:
-                        for leaf in block.leaves():
-                            encoded_txn = encode_object(leaf.txn())
-                            if encoded_txn in STATE[PORT]["mem_pool"]:
-                                # remove the new transactions from my mempool so I don't mine them later
-                                # NOTE: they should have already been removed from the peer mempool when they were mined by the peer
-                                STATE[PORT]["mem_pool"].remove(encode_object(leaf.txn()))
+                if msg_data["blockchain"] is not None:
+                    msg_blockchain = decode_object(msg_data["blockchain"])
+                    self_len = len(BLOCKCHAIN.blocks())
+                    new_blocks = msg_blockchain.blocks()[self_len:]
+                    fork_executed = BLOCKCHAIN.decide_fork(msg_blockchain)
+                    # iterate over the blocks & leaves to grab the txns
+                    if fork_executed is True:
+                        for block in new_blocks:
+                            for leaf in block.leaves():
+                                encoded_txn = encode_object(leaf.txn())
+                                if encoded_txn in STATE[PORT]["mem_pool"]:
+                                    # remove the new transactions from my mempool so I don't mine them later
+                                    # NOTE: they should have already been removed from the peer mempool when they were mined by the peer
+                                    STATE[PORT]["mem_pool"].remove(encode_object(leaf.txn()))
 
             # after flushing my mempool, combine it with other mempool
             combined_mempool = list(set(STATE[PORT]["mem_pool"] + msg_data["mem_pool"]))
-            MEM_POOL = combined_mempool
+            STATE[PORT]["mem_pool"] = combined_mempool
 
 def render_state():
     global PORT
     global STATE
     for port, msg_data in STATE.items():
         if port is not None and msg_data is not None:
-            truncated_blockchain = msg_data["blockchain"][0:10]
-            s_print(colored("coming from {0}: port {1} => {2}, version: {3}".format(PORT, port, msg_data["parsed_blockchain"], msg_data["version_number"]), "red"))
+            if msg_data["blockchain"] is None:
+                s_print("no blockchain created yet")
+            else:
+                truncated_blockchain = msg_data["blockchain"][0:10]
+                s_print(colored("coming from {0}: port {1} => {2}, version: {3}".format(PORT, port, msg_data["parsed_blockchain"], msg_data["version_number"]), "red"))
     # s_print(colored("rendering state from client: " + json.dumps(STATE), "green"))
 
 # ===========BEGIN: SERVER HELPERS=========== #
@@ -205,6 +213,22 @@ def evaluate_state():
         print(colored("sleeping {0} sec".format(sec), "yellow"))
         time.sleep(sec)
 
+        if BLOCKCHAIN is None:
+            BLOCKCHAIN = BlockChain(50, PUB_KEY, PRIV_KEY)
+        elif len(MEM_POOL) > 1:
+            txns = MEM_POOL[:2]
+            txns = map(lambda txn: decode_object(txn), txns)
+            latest_block = BLOCKCHAIN.blocks()[-1]
+            new_block = Block(txns, latest_block.hash())
+            appended = BLOCKCHAIN.append(new_block)
+            print(appended)
+            if appended is True:
+                STATE[PORT]["mem_pool"] = STATE[PORT]["mem_pool"][2:]
+        else:
+            new_txn = Transaction(satoshi_pubkey, PUB_KEY, 50, satoshi_privkey)
+            encoded_txn = encode_object(new_txn)
+            STATE[PORT]["mem_pool"].append(encoded_txn)
+
         new_state = {
             "UUID": uuid.uuid4().int,
             "originating_port": PORT,
@@ -214,22 +238,6 @@ def evaluate_state():
             "version_number": STATE[PORT]["version_number"] + 1,
             "ttl": time.time() + 60*1
         }
-
-        if len(MEM_POOL) > 1:
-            txns = MEM_POOL[:2]
-            txns = map(lambda txn: decode_object(txn), txns)
-            latest_block = BLOCKCHAIN.blocks()[-1]
-            new_block = Block(txns, latest_block.hash())
-            appended = BLOCKCHAIN.append(new_block)
-            print(appended)
-            if appended is True:
-                new_state["mem_pool"] = MEM_POOL[2:]
-                new_state["blockchain"] = encode_object(BLOCKCHAIN)
-                new_state["parsed_blockchain"] = parse_blockchain(BLOCKCHAIN)
-        else:
-            new_txn = Transaction(satoshi_pubkey, PUB_KEY, 50, satoshi_privkey)
-            encoded_txn = encode_object(new_txn)
-            new_state["mem_pool"].append(encoded_txn)
 
         update_state({PORT: new_state})
         render_state()
@@ -246,7 +254,7 @@ def fetch_state():
         if DEBUG is True:
             time.sleep(1000)
         time.sleep(2)
-        for port, book_data in STATE.items():
+        for port, msg_data in STATE.items():
             if port == PORT:
                 continue
             if port in PEER_PORTS:
