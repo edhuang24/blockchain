@@ -140,7 +140,6 @@ def build_state(port, peer_ports):
 # TODO: REFACTOR THIS TO USE PEER_PORTS INSTEAD OF FLOODING
 def update_state(data):
     global STATE
-    global MEM_POOL
     global BLOCKCHAIN
     global DEBUG
     global version_number
@@ -173,7 +172,7 @@ def update_state(data):
 
             # after flushing my mempool, combine it with other mempool
             combined_mempool = list(set(STATE[PORT]["mem_pool"] + msg_data["mem_pool"]))
-            MEM_POOL = combined_mempool
+            STATE[PORT]["mem_pool"] = combined_mempool
 
 def render_state():
     global PORT
@@ -194,7 +193,6 @@ render_state()
 
 def evaluate_state():
     global STATE
-    global MEM_POOL
     global BLOCKCHAIN
     global DEBUG
     while True:
@@ -215,15 +213,15 @@ def evaluate_state():
             "ttl": time.time() + 60*1
         }
 
-        if len(MEM_POOL) > 1:
-            txns = MEM_POOL[:2]
+        if len(STATE[PORT]["mem_pool"]) > 1:
+            txns = STATE[PORT]["mem_pool"][:2]
             txns = map(lambda txn: decode_object(txn), txns)
             latest_block = BLOCKCHAIN.blocks()[-1]
             new_block = Block(txns, latest_block.hash())
             appended = BLOCKCHAIN.append(new_block)
             print(appended)
             if appended is True:
-                new_state["mem_pool"] = MEM_POOL[2:]
+                new_state["mem_pool"] = STATE[PORT]["mem_pool"][2:]
                 new_state["blockchain"] = encode_object(BLOCKCHAIN)
                 new_state["parsed_blockchain"] = parse_blockchain(BLOCKCHAIN)
         else:
